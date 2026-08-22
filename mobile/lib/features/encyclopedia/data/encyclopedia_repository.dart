@@ -1,6 +1,6 @@
 // 百科仓库 - 连接真实的API
 import 'package:dio/dio.dart';
-import '../../core/network/dio_client.dart';
+import 'package:dream_decode/core/network/dio_client.dart';
 import 'encyclopedia_model.dart';
 
 class EncyclopediaRepository {
