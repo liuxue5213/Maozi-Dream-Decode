@@ -25,22 +25,49 @@ class _DreamRecordPageState extends ConsumerState<DreamRecordPage> {
   static const _scenes = ['飞翔', '坠落', '追逐', '迷路', '水', '火', '学校', '工作', '家乡', '陌生'];
 
   @override
-  void dispose() { _contentController.dispose(); super.dispose(); }
+  void dispose() {
+    _contentController.dispose();
+    super.dispose();
+  }
 
   Future<void> _selectDate() async {
-    final picked = await showDatePicker(context: context, initialDate: _selectedDate, firstDate: DateTime.now().subtract(const Duration(days: 30)), lastDate: DateTime.now());
-    if (picked != null) setState(() => _selectedDate = picked);
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime.now().subtract(const Duration(days: 30)),
+      lastDate: DateTime.now(),
+    );
+    if (picked != null) {
+      setState(() => _selectedDate = picked);
+    }
   }
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+
     setState(() => _isSubmitting = true);
+
     try {
       final repository = DreamRepository();
-      await repository.createDream(content: _contentController.text.trim(), emotions: _selectedEmotions, scenes: _selectedScenes, date: DateFormat('yyyy-MM-dd').format(_selectedDate));
-      if (mounted) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('梦境已保存！'))); context.go('/'); }
+      await repository.createDream(
+        content: _contentController.text.trim(),
+        emotions: _selectedEmotions,
+        scenes: _selectedScenes,
+        date: DateFormat('yyyy-MM-dd').format(_selectedDate),
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('梦境已保存！')),
+        );
+        context.go('/');
+      }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('提交失败: $e')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('提交失败: $e')),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
@@ -49,29 +76,140 @@ class _DreamRecordPageState extends ConsumerState<DreamRecordPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('记录梦境'), centerTitle: true),
+      appBar: AppBar(
+        title: const Text('记录梦境'),
+        centerTitle: true,
+      ),
       body: Form(
         key: _formKey,
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            const Text('昨晚你梦见了什么？', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            TextFormField(controller: _contentController, maxLines: 8, decoration: const InputDecoration(hintText: '尽量详细地描述你的梦境，至少 5 个字...', border: OutlineInputBorder()),
-              validator: (v) => (v == null || v.trim().isEmpty) ? '请输入梦境描述' : (v.trim().length < 5 ? '至少5个字' : null)),
-            const SizedBox(height: 16),
-            InkWell(onTap: _selectDate, child: InputDecorator(decoration: const InputDecoration(labelText: '梦境日期', border: OutlineInputBorder()), child: Text(DateFormat('yyyy-MM-dd').format(_selectedDate)))),
-            const SizedBox(height: 24),
-            const Text('情绪感受（可多选）', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            Wrap(spacing: 8, runSpacing: 8, children: _emotions.map((e) => FilterChip(label: Text(e), selected: _selectedEmotions.contains(e), onSelected: (v) => setState(() { if (v) { _selectedEmotions.add(e); } else { _selectedEmotions.remove(e); } })).toList()),
-            const SizedBox(height: 24),
-            const Text('场景元素（可多选）', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            Wrap(spacing: 8, runSpacing: 8, children: _scenes.map((s) => FilterChip(label: Text(s), selected: _selectedScenes.contains(s), onSelected: (v) => setState(() { if (v) { _selectedScenes.add(s); } else { _selectedScenes.remove(s); } })).toList()),
-            const SizedBox(height: 32),
-            FilledButton(onPressed: _isSubmitting ? null : _submit, child: Padding(padding: const EdgeInsets.all(16), child: _isSubmitting ? const CircularProgressIndicator() : const Text('保存梦境'))),
-          ]),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                '昨晚你梦见了什么？',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _contentController,
+                maxLines: 8,
+                decoration: const InputDecoration(
+                  hintText: '尽量详细地描述你的梦境，至少 5 个字...',
+                  border: OutlineInputBorder(),
+                  alignLabelWithHint: true,
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return '请输入梦境描述';
+                  }
+                  if (value.trim().length < 5) {
+                    return '梦境描述至少需要 5 个字';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+
+              InkWell(
+                onTap: _selectDate,
+                child: InputDecorator(
+                  decoration: const InputDecoration(
+                    labelText: '梦境日期',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.calendar_today),
+                  ),
+                  child: Text(DateFormat('yyyy-MM-dd').format(_selectedDate)),
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              Text(
+                '情绪感受（可多选）',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: _emotions.map((emotion) {
+                  final selected = _selectedEmotions.contains(emotion);
+                  return FilterChip(
+                    label: Text(emotion),
+                    selected: selected,
+                    onSelected: (value) {
+                      setState(() {
+                        if (value) {
+                          _selectedEmotions.add(emotion);
+                        } else {
+                          _selectedEmotions.remove(emotion);
+                        }
+                      });
+                    },
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 24),
+
+              Text(
+                '场景元素（可多选）',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: _scenes.map((scene) {
+                  final selected = _selectedScenes.contains(scene);
+                  return FilterChip(
+                    label: Text(scene),
+                    selected: selected,
+                    onSelected: (value) {
+                      setState(() {
+                        if (value) {
+                          _selectedScenes.add(scene);
+                        } else {
+                          _selectedScenes.remove(scene);
+                        }
+                      });
+                    },
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 32),
+
+              FilledButton(
+                onPressed: _isSubmitting ? null : _submit,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: _isSubmitting
+                      ? const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                            SizedBox(width: 12),
+                            Text('正在保存...'),
+                          ],
+                        )
+                      : const Text('保存梦境', style: TextStyle(fontSize: 16)),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              Text(
+                'AI 解析结果仅供参考，不构成医疗或心理治疗建议',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.outline,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
         ),
       ),
     );
