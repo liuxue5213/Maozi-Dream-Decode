@@ -46,7 +46,7 @@ maozi-dream-decode/
 
 ```bash
 # 在你的电脑上
-scp -r maozi-dream-decode root@120.48.13.152:/root/
+scp -r maozi-dream-decode root@your-server-ip:/root/
 ```
 
 ### 2. 配置环境变量
@@ -75,9 +75,9 @@ docker-compose up -d
 
 | 服务 | 地址 |
 |------|------|
-| Web 前端 | http://120.48.13.152:60180 |
-| API 文档 | http://120.48.13.152:60185/docs |
-| 健康检查 | http://120.48.13.152:60185/health |
+| Web 前端 | http://your-server-ip:60180 |
+| API 文档 | http://your-server-ip:60185/docs |
+| 健康检查 | http://your-server-ip:60185/health |
 
 ---
 
@@ -85,7 +85,7 @@ docker-compose up -d
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│                    120.48.13.152                      │
+│                    your-server-ip                      │
 │                                                       │
 │  :60180 ──→ Nginx ──┬── /api/* ──→ FastAPI :8000    │
 │                      └── /      ──→ Web 前端          │
@@ -127,7 +127,7 @@ docker exec -it dream-db psql -U postgres -d dream_app
 
 ## API 接口
 
-启动后访问 Swagger UI: `http://120.48.13.152:60185/docs`
+启动后访问 Swagger UI: `http://your-server-ip:60185/docs`
 
 ### 认证
 | 方法 | 路径 | 说明 |
@@ -170,7 +170,7 @@ docker exec -it dream-db psql -U postgres -d dream_app
 
 ```yaml
 # GitHub Secrets 配置
-API_BASE_URL=http://120.48.13.152:60185
+API_BASE_URL=http://your-server-ip:60185
 ```
 
 ---
