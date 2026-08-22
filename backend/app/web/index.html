@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>梦语 - 梦境记录与 AI 解析</title>
+    <link rel="stylesheet" href="/web/styles.css">
+</head>
+<body>
+    <div id="app">
+        <!-- 登录/注册页面 -->
+        <div id="auth-page" class="page">
+            <div class="auth-container">
+                <div class="logo">
+                    <span class="logo-icon">🌙</span>
+                    <h1>梦语</h1>
+                    <p class="subtitle">记录梦境，探索潜意识</p>
+                </div>
+                
+                <div class="tabs">
+                    <button class="tab-btn active" data-tab="login">登录</button>
+                    <button class="tab-btn" data-tab="register">注册</button>
+                </div>
+                
+                <!-- 登录表单 -->
+                <form id="login-form" class="auth-form">
+                    <div class="form-group">
+                        <label>手机号</label>
+                        <input type="tel" id="login-phone" placeholder="请输入手机号" required>
+                    </div>
+                    <div class="form-group">
+                        <label>密码</label>
+                        <input type="password" id="login-password" placeholder="请输入密码" required>
+                    </div>
+                    <button type="submit" class="btn-primary">登录</button>
+                </form>
+                
+                <!-- 注册表单 -->
+                <form id="register-form" class="auth-form hidden">
+                    <div class="form-group">
+                        <label>手机号</label>
+                        <input type="tel" id="register-phone" placeholder="请输入手机号" required>
+                    </div>
+                    <div class="form-group">
+                        <label>密码</label>
+                        <input type="password" id="register-password" placeholder="至少 6 位密码" required>
+                    </div>
+                    <div class="form-group">
+                        <label>昵称</label>
+                        <input type="text" id="register-nickname" placeholder="梦友">
+                    </div>
+                    <button type="submit" class="btn-primary">注册</button>
+                </form>
+            </div>
+        </div>
+        
+        <!-- 主应用页面 -->
+        <div id="main-page" class="page hidden">
+            <!-- 顶部导航 -->
+            <header class="header">
+                <div class="header-left">
+                    <span class="logo-icon small">🌙</span>
+                    <span class="header-title">梦语</span>
+                </div>
+                <div class="header-right">
+                    <span id="user-info"></span>
+                    <button id="logout-btn" class="btn-text">退出</button>
+                </div>
+            </header>
+            
+            <!-- 内容区域 -->
+            <main class="main-content">
+                <!-- 梦境列表 -->
+                <section id="dreams-section" class="content-section">
+                    <div class="section-header">
+                        <h2>我的梦</h2>
+                        <button id="new-dream-btn" class="btn-primary">+ 记梦</button>
+                    </div>
+                    <div id="dreams-list" class="dreams-list">
+                        <div class="empty-state">
+                            <span class="empty-icon">💭</span>
+                            <p>还没有记录过梦境</p>
+                            <p class="empty-hint">点击「记梦」开始记录你的第一个梦</p>
+                        </div>
+                    </div>
+                </section>
+                
+                <!-- 记录梦境 -->
+                <section id="record-section" class="content-section hidden">
+                    <div class="section-header">
+                        <h2>记录梦境</h2>
+                        <button id="back-to-list" class="btn-text">← 返回</button>
+                    </div>
+                    <form id="dream-form" class="dream-form">
+                        <div class="form-group">
+                            <label>梦境描述</label>
+                            <textarea id="dream-content" placeholder="尽量详细地描述你的梦境，包括场景、人物、情节..." rows="6" required></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>日期</label>
+                            <input type="date" id="dream-date" required>
+                        </div>
+                        <div class="form-group">
+                            <label>情绪感受（可多选）</label>
+                            <div class="tag-select" id="emotion-tags">
+                                <span class="tag" data-value="恐惧">恐惧</span>
+                                <span class="tag" data-value="焦虑">焦虑</span>
+                                <span class="tag" data-value="开心">开心</span>
+                                <span class="tag" data-value="悲伤">悲伤</span>
+                                <span class="tag" data-value="愤怒">愤怒</span>
+                                <span class="tag" data-value="平静">平静</span>
+                                <span class="tag" data-value="困惑">困惑</span>
+                                <span class="tag" data-value="兴奋">兴奋</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>场景元素（可多选）</label>
+                            <div class="tag-select" id="scene-tags">
+                                <span class="tag" data-value="飞翔">飞翔</span>
+                                <span class="tag" data-value="坠落">坠落</span>
+                                <span class="tag" data-value="追逐">追逐</span>
+                                <span class="tag" data-value="迷路">迷路</span>
+                                <span class="tag" data-value="水">水</span>
+                                <span class="tag" data-value="火">火</span>
+                                <span class="tag" data-value="学校">学校</span>
+                                <span class="tag" data-value="工作">工作</span>
+                                <span class="tag" data-value="家乡">家乡</span>
+                                <span class="tag" data-value="陌生">陌生</span>
+                            </div>
+                        </div>
+                        <p class="form-hint">AI 解析结果仅供参考，不构成医疗或心理治疗建议</p>
+                        <button type="submit" class="btn-primary btn-block">保存并解析</button>
+                    </form>
+                </section>
+                
+                <!-- 解析结果 -->
+                <section id="interpretation-section" class="content-section hidden">
+                    <div class="section-header">
+                        <h2>梦境解析</h2>
+                        <div>
+                            <button id="regenerate-btn" class="btn-text">🔄 重新生成</button>
+                            <button id="back-to-list-2" class="btn-text">← 返回</button>
+                        </div>
+                    </div>
+                    <div id="interpretation-content" class="interpretation-content">
+                        <div class="loading">正在加载解析结果...</div>
+                    </div>
+                </section>
+                
+                <!-- 解梦百科 -->
+                <section id="encyclopedia-section" class="content-section hidden">
+                    <div class="section-header">
+                        <h2>解梦百科</h2>
+                    </div>
+                    <div class="search-bar">
+                        <input type="text" id="encyclopedia-search" placeholder="搜索梦境符号，如：蛇、飞翔、掉牙...">
+                    </div>
+                    <div class="category-filter" id="category-filter">
+                        <span class="category-tag active" data-value="">全部</span>
+                        <span class="category-tag" data-value="动物">动物</span>
+                        <span class="category-tag" data-value="自然">自然</span>
+                        <span class="category-tag" data-value="身体">身体</span>
+                        <span class="category-tag" data-value="场景">场景</span>
+                        <span class="category-tag" data-value="事件">事件</span>
+                        <span class="category-tag" data-value="颜色">颜色</span>
+                    </div>
+                    <div id="encyclopedia-list" class="encyclopedia-list"></div>
+                </section>
+            </main>
+            
+            <!-- 底部导航 -->
+            <nav class="bottom-nav">
+                <button class="nav-item active" data-section="dreams-section">
+                    <span class="nav-icon">🏠</span>
+                    <span>我的梦</span>
+                </button>
+                <button class="nav-item" data-section="record-section">
+                    <span class="nav-icon">✏️</span>
+                    <span>记梦</span>
+                </button>
+                <button class="nav-item" data-section="encyclopedia-section">
+                    <span class="nav-icon">📚</span>
+                    <span>百科</span>
+                </button>
+            </nav>
+        </div>
+    </div>
+    
+    <!-- 提示消息 -->
+    <div id="toast" class="toast hidden"></div>
+    
+    <!-- 词条详情弹窗 -->
+    <div id="item-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modal-title"></h3>
+                <button id="modal-close" class="btn-text">✕</button>
+            </div>
+            <div id="modal-body" class="modal-body"></div>
+        </div>
+    </div>
+    
+    <script src="/web/app.js"></script>
+</body>
+</html>
