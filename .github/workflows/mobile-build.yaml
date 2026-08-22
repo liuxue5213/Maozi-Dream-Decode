@@ -28,20 +28,42 @@ jobs:
         distribution: 'zulu'
         java-version: '17'
         
-    - name: Fix Android Gradle Wrapper
+    - name: Regenerate Flutter Android Project
       run: |
         cd mobile
-        # 确保gradle wrapper存在
-        if [ ! -f "android/gradlew" ]; then
-          echo "🔧 生成Gradle Wrapper..."
-          # 使用Flutter生成标准Android项目
-          flutter create --org com.maozi.dreamdecode --project-name maozi_dream_decode --platforms android .
-          chmod +x android/gradlew
-          echo "✅ Gradle Wrapper生成完成"
+        echo "🔧 重新生成标准Flutter Android项目..."
+        
+        # 检查是否有android目录
+        if [ ! -d "android" ]; then
+          echo "📱 Android目录不存在，重新生成..."
+          # 备份现有的lib目录
+          mv lib lib_backup || true
+          
+          # 使用Flutter重新生成标准项目结构
+          flutter create --org com.maozi.dreamdecode --project-name maozi_dream_decode .
+          
+          # 恢复lib目录（保留原有的Dart代码）
+          rm -rf lib
+          mv lib_backup lib || true
+          
+          echo "✅ Flutter Android项目重新生成完成"
         else
-          echo "✅ Gradle Wrapper已存在"
-          chmod +x android/gradlew
+          echo "✅ Android目录已存在"
         fi
+        
+    - name: Update App Name and Config
+      run: |
+        cd mobile
+        # 更新应用名称为中文
+        if [ -f "android/app/src/main/res/values/strings.xml" ]; then
+          sed -i 's/<string name="app_name">.*<\/string>/<string name="app_name">帽子解梦<\/string>/g' android/app/src/main/res/values/strings.xml
+          echo "✅ 应用名称已更新为'帽子解梦'"
+        fi
+        
+        # 创建.env文件
+        echo "API_BASE_URL=https://api.maozi-dream-decode.com" > .env
+        echo "APP_NAME=帽子解梦" >> .env  
+        echo "APP_VERSION=1.0.0" >> .env
         
     - name: Install Flutter dependencies
       run: |

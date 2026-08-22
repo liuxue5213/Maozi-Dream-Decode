@@ -1,5 +1,0 @@
-package com.maozi.dreamdecode
-
-import io.flutter.embedding.android.FlutterActivity
-
-class MainActivity: FlutterActivity()
