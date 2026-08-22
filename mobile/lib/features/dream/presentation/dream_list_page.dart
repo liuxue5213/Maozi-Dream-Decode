@@ -61,7 +61,7 @@ class _DreamListPageState extends ConsumerState<DreamListPage> {
           ),
           IconButton(
             icon: const Icon(Icons.person_outline),
-            onPressed: () {},
+            onPressed: () => context.go('/profile'),
           ),
         ],
       ),
@@ -88,33 +88,30 @@ class _DreamListPageState extends ConsumerState<DreamListPage> {
       );
     }
 
-    if (_error != null) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.error_outline, size: 80, color: Theme.of(context).colorScheme.error),
-            const SizedBox(height: 16),
-            Text('加载失败', style: Theme.of(context).textTheme.bodyLarge),
-            const SizedBox(height: 8),
-            Text(_error!, style: Theme.of(context).textTheme.bodySmall, textAlign: TextAlign.center),
-            const SizedBox(height: 16),
-            FilledButton.icon(onPressed: _loadDreams, icon: const Icon(Icons.refresh), label: const Text('重试')),
-          ],
-        ),
-      );
-    }
-
     if (_dreams.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.nightlight_outlined, size: 80, color: Theme.of(context).colorScheme.outline),
+            Icon(
+              Icons.nightlight_outlined,
+              size: 80,
+              color: Theme.of(context).colorScheme.outline,
+            ),
             const SizedBox(height: 16),
-            Text('还没有记录过梦境', style: Theme.of(context).textTheme.bodyLarge),
+            Text(
+              '还没有记录过梦境',
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                color: Theme.of(context).colorScheme.outline,
+              ),
+            ),
             const SizedBox(height: 8),
-            Text('点击下方「记梦」开始记录你的第一个梦', style: Theme.of(context).textTheme.bodySmall),
+            Text(
+              '点击下方「记梦」开始记录你的第一个梦',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.outline,
+              ),
+            ),
           ],
         ),
       );
@@ -130,9 +127,34 @@ class _DreamListPageState extends ConsumerState<DreamListPage> {
           return Card(
             margin: const EdgeInsets.only(bottom: 12),
             child: ListTile(
-              title: Text(dream.content, maxLines: 2, overflow: TextOverflow.ellipsis),
-              subtitle: Text(dream.date),
-              onTap: () => context.go('/dream/${dream.id}'),
+              title: Text(
+                dream.content,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 4),
+                  Text(dream.date),
+                  if (dream.emotions.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Wrap(
+                      spacing: 4,
+                      children: dream.emotions.map((e) => Chip(
+                        label: Text(e, style: const TextStyle(fontSize: 12)),
+                        padding: EdgeInsets.zero,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      )).toList(),
+                    ),
+                  ],
+                ],
+              ),
+              onTap: () {
+                if (dream.interpretation != null) {
+                  context.go('/interpretation/${dream.id}');
+                }
+              },
             ),
           );
         },

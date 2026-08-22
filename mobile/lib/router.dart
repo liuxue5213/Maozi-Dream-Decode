@@ -7,6 +7,7 @@ import 'features/dream/presentation/dream_record_page.dart';
 import 'features/dream/presentation/interpretation_page.dart';
 import 'features/encyclopedia/presentation/encyclopedia_page.dart';
 import 'features/main/presentation/main_page.dart';
+import 'features/profile/presentation/profile_page.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -30,6 +31,9 @@ final routerProvider = Provider<GoRouter>((ref) {
           dreamId: int.parse(state.pathParameters['id']!),
         ),
       ),
+      
+      // 个人中心页（独立，无底部导航）
+      GoRoute(path: '/profile', builder: (context, state) => const ProfilePage()),
       
       // 主导航页面（带底部导航）
       ShellRoute(

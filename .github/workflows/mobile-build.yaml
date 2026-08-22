@@ -15,7 +15,7 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Setup Flutter 3.19.6 (Stable)
+    - name: Setup Flutter
       uses: subosito/flutter-action@v2
       with:
         flutter-version: '3.19.6'
@@ -47,11 +47,11 @@ jobs:
         rm -rf mobile
         
         # 重新创建完整的Flutter项目
-        flutter create --org com.maozi.dreamdecode --project-name maozi_dream_decode --platforms android,ios mobile
+        flutter create --org com.maozi.dreamdecode --project-name dream_decode --platforms android mobile
         
         # 恢复重要文件
-        cp -r mobile_backup/lib/* mobile/lib/ || true
-        cp mobile_backup/pubspec.yaml mobile/pubspec.yaml || true
+        cp -r mobile_backup/lib mobile/
+        cp mobile_backup/pubspec.yaml mobile/pubspec.yaml
         cp mobile_backup/.gitignore mobile/.gitignore || true
         cp mobile_backup/.env.example mobile/.env.example || true
         
@@ -60,37 +60,85 @@ jobs:
         
         echo "✅ Flutter项目重建完成"
         
-    - name: Downgrade shared_preferences to Compatible Version
+    - name: Setup Python for icon generation
+      uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          
+    - name: Generate App Icons
+      run: |
+        cd mobile
+        pip install Pillow
+        
+        # 使用仓库中保存的图标生成各尺寸
+        python3 - <<'PYEOF'
+        import os
+        from PIL import Image
+        import glob
+        
+        # 查找图标文件（在仓库的covers目录中）
+        icon_files = glob.glob("../covers/dream_icon_*.png")
+        if not icon_files:
+            icon_files = glob.glob("../covers/帽子解梦_mysterious_*.png")
+        
+        if icon_files:
+            source = icon_files[0]
+            print(f"使用图标: {source}")
+            
+            img = Image.open(source)
+            if img.mode != 'RGBA':
+                img = img.convert('RGBA')
+            
+            # 裁剪为正方形
+            min_dim = min(img.size)
+            left = (img.size[0] - min_dim) // 2
+            top = (img.size[1] - min_dim) // 2
+            img = img.crop((left, top, left + min_dim, top + min_dim))
+            
+            # 生成各尺寸
+            sizes = {
+                "mipmap-mdpi": 48,
+                "mipmap-hdpi": 72,
+                "mipmap-xhdpi": 96,
+                "mipmap-xxhdpi": 144,
+                "mipmap-xxxhdpi": 192
+            }
+            
+            for density, size in sizes.items():
+                os.makedirs(f"android/app/src/main/res/{density}", exist_ok=True)
+                img.resize((size, size), Image.Resampling.LANCZOS).save(
+                    f"android/app/src/main/res/{density}/ic_launcher.png", "PNG"
+                )
+                print(f"  ✅ {density} ({size}x{size})")
+        else:
+            print("⚠️ 未找到图标文件，使用默认图标")
+        PYEOF
+        
+        echo "✅ 应用图标生成完成"
+        
+    - name: Configure App Name and Environment
       run: |
         cd mobile
         
-        # 修改pubspec.yaml，使用兼容的shared_preferences版本
-        sed -i 's/shared_preferences: ^2.4.7/shared_preferences: ^2.3.0/' mobile/pubspec.yaml || true
+        # 更新AndroidManifest.xml中的应用名称
+        sed -i 's/android:label="[^"]*"/android:label="帽子解梦"/' android/app/src/main/AndroidManifest.xml
         
-        echo "✅ shared_preferences降级到2.3.0（与Flutter 3.19.6兼容）"
-        
-    - name: Create Production Environment File
-      run: |
-        cd mobile
+        # 创建strings.xml（如果不存在）
+        mkdir -p android/app/src/main/res/values
+        cat > android/app/src/main/res/values/strings.xml << 'XMLEOF'
+        <?xml version="1.0" encoding="utf-8"?>
+        <resources>
+            <string name="app_name">帽子解梦</string>
+        </resources>
+        XMLEOF
         
         # 创建生产环境配置文件
         echo "API_BASE_URL=${{ secrets.API_BASE_URL != '' && secrets.API_BASE_URL || 'http://your-server-ip:60185' }}" > .env
         echo "APP_NAME=帽子解梦" >> .env  
         echo "APP_VERSION=1.0.0" >> .env
         
-        echo "✅ 生产环境配置文件已创建"
-        echo "📡 API地址: $(grep API_BASE_URL .env)"
-        
-    - name: Update App Configuration
-      run: |
-        cd mobile
-        
-        # 更新应用名称
-        if [ -f "android/app/src/main/res/values/strings.xml" ]; then
-          sed -i 's/<string name="app_name">.*<\/string>/<string name="app_name">帽子解梦<\/string>/g' android/app/src/main/res/values/strings.xml
-        fi
-        
-        echo "✅ 应用配置更新完成"
+        echo "✅ 应用名称已设置为：帽子解梦"
+        echo "✅ API地址: $(grep API_BASE_URL .env)"
         
     - name: Install Flutter dependencies
       run: |
@@ -111,26 +159,21 @@ jobs:
         
     - name: Release Summary
       run: |
-        echo "# 🎉 Android APK 构建成功！" >> $GITHUB_STEP_SUMMARY
+        echo "# 🎉 帽子解梦 APK 构建成功！" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "## 📦 构建信息" >> $GITHUB_STEP_SUMMARY
         echo "- **应用名称**: 帽子解梦" >> $GITHUB_STEP_SUMMARY
         echo "- **包名**: com.maozi.dreamdecode" >> $GITHUB_STEP_SUMMARY
         echo "- **版本**: 1.0.0" >> $GITHUB_STEP_SUMMARY
         echo "- **Flutter版本**: 3.19.6" >> $GITHUB_STEP_SUMMARY
-        echo "- **shared_preferences**: 2.3.0（兼容版本）" >> $GITHUB_STEP_SUMMARY
+        echo "- **图标**: 解梦主题（月亮星星）" >> $GITHUB_STEP_SUMMARY
         echo "- **构建时间**: $(date)" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "## 🔧 关键修复" >> $GITHUB_STEP_SUMMARY
-        echo "- 使用更稳定的Flutter 3.19.6版本" >> $GITHUB_STEP_SUMMARY
-        echo "- 降级shared_preferences到2.3.0（兼容版本）" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "## ⚠️ 重要配置提醒" >> $GITHUB_STEP_SUMMARY
-        echo "### 🌐 后端API配置" >> $GITHUB_STEP_SUMMARY
-        echo "- **GitHub Secret**: \`API_BASE_URL\`" >> $GITHUB_STEP_SUMMARY
-        echo "- **默认值**: \`http://your-server-ip:60185\`" >> $GITHUB_STEP_SUMMARY
-        echo "- **说明**: 请在仓库 Settings → Secrets 中配置真实的服务器地址" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "## 📥 下载方式" >> $GITHUB_STEP_SUMMARY
-        echo "1. 前往 Actions 页面的 'Artifacts' 部分" >> $GITHUB_STEP_SUMMARY
-        echo "2. 下载 \`maozi-dream-decode-apk\` 文件" >> $GITHUB_STEP_SUMMARY
+        echo "## ✨ 本次更新" >> $GITHUB_STEP_SUMMARY
+        echo "- 梦境保存支持本地存储（后端不可用也能保存）" >> $GITHUB_STEP_SUMMARY
+        echo "- 解梦百科内置30个词条数据" >> $GITHUB_STEP_SUMMARY
+        echo "- 个人中心页面（统计、设置、退出登录）" >> $GITHUB_STEP_SUMMARY
+        echo "- 全新解梦主题应用图标" >> $GITHUB_STEP_SUMMARY
+__zcode_status=$?
+if [ "$__zcode_status" -eq 0 ]; then pwd -P > '/var/folders/ty/0xm9rt3x3hj7zjy16lgdqr_40000gp/T/zcode-e664f600-bd3d-48e9-9447-fccf5f857875-cwd'; fi
+exit "$__zcode_status"

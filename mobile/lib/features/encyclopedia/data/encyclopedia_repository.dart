@@ -1,12 +1,13 @@
-// 百科仓库 - 连接真实的API
+// 百科仓库 - API优先，本地数据后备
 import 'package:dio/dio.dart';
 import 'package:dream_decode/core/network/dio_client.dart';
 import 'encyclopedia_model.dart';
+import 'local_encyclopedia_data.dart';
 
 class EncyclopediaRepository {
   final DioClient _dioClient = DioClient();
 
-  /// 获取百科词条列表
+  /// 获取百科词条列表（API优先，本地后备）
   Future<List<EncyclopediaModel>> fetchEncyclopedia({
     String? keyword,
     String? category,
@@ -23,47 +24,84 @@ class EncyclopediaRepository {
       final response = await _dioClient.dio.get(
         '/api/v1/encyclopedia',
         queryParameters: queryParams,
+        options: Options(
+          sendTimeout: const Duration(seconds: 10),
+          receiveTimeout: const Duration(seconds: 10),
+        ),
       );
 
       if (response.statusCode == 200) {
         final List<dynamic> data = response.data;
-        return data.map((item) => EncyclopediaModel.fromJson(item)).toList();
+        if (data.isNotEmpty) {
+          return data.map((item) => EncyclopediaModel.fromJson(item)).toList();
+        }
       }
-      return <EncyclopediaModel>[];
     } catch (e) {
-      print('获取百科列表失败: $e');
-      return <EncyclopediaModel>[];
+      print('API获取百科失败，使用本地数据: $e');
     }
+    
+    // API失败或无数据，返回本地数据
+    return _filterLocalData(keyword, category);
+  }
+
+  /// 过滤本地数据
+  List<EncyclopediaModel> _filterLocalData(String? keyword, String? category) {
+    var items = LocalEncyclopediaData.getAllItems();
+    
+    if (category != null && category != '全部') {
+      items = items.where((item) => item.category == category).toList();
+    }
+    
+    if (keyword != null && keyword.isNotEmpty) {
+      items = items.where((item) => 
+        item.title.contains(keyword) || item.brief.contains(keyword)
+      ).toList();
+    }
+    
+    return items;
   }
 
   /// 获取百科分类列表
   Future<List<String>> fetchCategories() async {
     try {
-      final response = await _dioClient.dio.get('/api/v1/encyclopedia/categories');
+      final response = await _dioClient.dio.get(
+        '/api/v1/encyclopedia/categories',
+        options: Options(
+          sendTimeout: const Duration(seconds: 10),
+          receiveTimeout: const Duration(seconds: 10),
+        ),
+      );
       
       if (response.statusCode == 200) {
         final List<dynamic> data = response.data;
-        return data.map((e) => e.toString()).toList();
+        if (data.isNotEmpty) {
+          final categories = data.map((e) => e.toString()).toList();
+          return ['全部', ...categories];
+        }
       }
-      return ['全部', '动物', '自然', '身体', '场景', '事件', '颜色'];
     } catch (e) {
-      print('获取分类列表失败: $e');
-      return ['全部', '动物', '自然', '身体', '场景', '事件', '颜色'];
+      print('API获取分类失败，使用本地数据: $e');
     }
+    
+    return LocalEncyclopediaData.getCategories();
   }
 
   /// 获取百科词条详情
   Future<EncyclopediaModel?> getEncyclopediaDetail(String id) async {
     try {
       final response = await _dioClient.dio.get('/api/v1/encyclopedia/$id');
-      
       if (response.statusCode == 200) {
         return EncyclopediaModel.fromJson(response.data);
       }
-      return null;
     } catch (e) {
-      print('获取百科详情失败: $e');
-      return null;
+      print('API获取详情失败: $e');
     }
+    
+    // 本地查找
+    final items = LocalEncyclopediaData.getAllItems();
+    for (final item in items) {
+      if (item.id == id) return item;
+    }
+    return null;
   }
 }
