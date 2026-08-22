@@ -1,14 +1,14 @@
 // 梦境数据模型
 class DreamModel {
-  String id;
-  String content;
-  DateTime createdAt;
-  List<String> emotions;
-  List<String> scenes;
-  String date;
-  String? interpretation;
-  String? userId;
-  
+  final String id;
+  final String content;
+  final DateTime createdAt;
+  final List<String> emotions;
+  final List<String> scenes;
+  final String date;
+  final String? interpretation;
+  final String? userId;
+
   DreamModel({
     required this.id,
     required this.content,
@@ -20,7 +20,7 @@ class DreamModel {
     this.userId,
   });
 
-  Map<String, dynamic> toJson() => {
+  Map<String, dynamic> toJson() {
     return {
       'id': id,
       'content': content,
@@ -28,21 +28,27 @@ class DreamModel {
       'emotions': emotions,
       'scenes': scenes,
       'date': date,
-      if (interpretation != null) 'interpretation': interpretation,
-      if (userId != null) 'userId': userId,
+      'interpretation': interpretation,
+      'userId': userId,
     };
   }
 
   factory DreamModel.fromJson(Map<String, dynamic> json) {
     return DreamModel(
-      id: json['id'] ?? '',
-      content: json['content'] ?? '',
-      createdAt: DateTime.parse(json['createdAt'] ?? DateTime.now()),
-      emotions: List<String>.from(json['emotions'] ?? []),
-      scenes: List<String>.from(json['scenes'] ?? []),
-      date: json['date'] ?? '',
-      interpretation: json['interpretation'],
-      userId: json['userId'],
+      id: json['id']?.toString() ?? '',
+      content: json['content']?.toString() ?? '',
+      createdAt: json['createdAt'] != null 
+          ? DateTime.parse(json['createdAt'].toString()) 
+          : DateTime.now(),
+      emotions: json['emotions'] != null 
+          ? List<String>.from(json['emotions']) 
+          : <String>[],
+      scenes: json['scenes'] != null 
+          ? List<String>.from(json['scenes']) 
+          : <String>[],
+      date: json['date']?.toString() ?? '',
+      interpretation: json['interpretation']?.toString(),
+      userId: json['userId']?.toString(),
     );
   }
 }

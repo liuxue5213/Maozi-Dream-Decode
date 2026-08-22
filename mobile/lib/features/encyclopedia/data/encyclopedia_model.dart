@@ -17,10 +17,10 @@ class EncyclopediaModel {
   factory EncyclopediaModel.fromJson(Map<String, dynamic> json) {
     return EncyclopediaModel(
       id: json['id']?.toString() ?? '',
-      title: json['title'] ?? '',
-      category: json['category'] ?? '',
-      brief: json['brief'] ?? '',
-      content: json['content'],
+      title: json['title']?.toString() ?? '',
+      category: json['category']?.toString() ?? '',
+      brief: json['brief']?.toString() ?? '',
+      content: json['content']?.toString(),
     );
   }
 
@@ -30,7 +30,7 @@ class EncyclopediaModel {
       'title': title,
       'category': category,
       'brief': brief,
-      if (content != null) 'content': content,
+      'content': content,
     };
   }
 }
