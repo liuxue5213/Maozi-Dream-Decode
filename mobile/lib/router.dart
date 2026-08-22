@@ -4,6 +4,7 @@ import 'features/auth/data/auth_storage.dart';
 import 'features/auth/presentation/login_page.dart';
 import 'features/dream/presentation/dream_list_page.dart';
 import 'features/dream/presentation/dream_record_page.dart';
+import 'features/dream/presentation/dream_detail_page.dart';
 import 'features/dream/presentation/interpretation_page.dart';
 import 'features/encyclopedia/presentation/encyclopedia_page.dart';
 import 'features/main/presentation/main_page.dart';
@@ -34,6 +35,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       
       // 个人中心页（独立，无底部导航）
       GoRoute(path: '/profile', builder: (context, state) => const ProfilePage()),
+      
+      // 梦境详情页（独立，无底部导航）
+      GoRoute(
+        path: '/dream/:id',
+        builder: (context, state) => DreamDetailPage(
+          dreamId: state.pathParameters['id']!,
+        ),
+      ),
       
       // 主导航页面（带底部导航）
       ShellRoute(

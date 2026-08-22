@@ -10,7 +10,11 @@ class InterpretationSymbol(BaseModel):
 
 
 class InterpretationResult(BaseModel):
-    summary: str
+    """兼容结构化和 Markdown 两种格式"""
+    # Markdown 全文（新格式）
+    content: str | None = None
+    # 结构化字段（旧格式兼容）
+    summary: str | None = None
     symbols: list[InterpretationSymbol] | None = []
     psychology_analysis: str | None = None
     traditional_meaning: str | None = None
@@ -22,7 +26,7 @@ class InterpretationResult(BaseModel):
 class InterpretationResponse(BaseModel):
     id: int
     dream_id: int
-    result_json: InterpretationResult
+    result_json: InterpretationResult | str | None = None
     model_version: str
     engine_type: str
     created_at: datetime

@@ -61,7 +61,7 @@ class _DreamListPageState extends ConsumerState<DreamListPage> {
           ),
           IconButton(
             icon: const Icon(Icons.person_outline),
-            onPressed: () => context.go('/profile'),
+            onPressed: () => context.push('/profile'),
           ),
         ],
       ),
@@ -152,7 +152,7 @@ class _DreamListPageState extends ConsumerState<DreamListPage> {
               ),
               onTap: () {
                 if (dream.interpretation != null) {
-                  context.go('/interpretation/${dream.id}');
+                  context.push('/dream/${dream.id}');
                 }
               },
             ),

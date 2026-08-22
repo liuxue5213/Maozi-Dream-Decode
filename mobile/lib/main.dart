@@ -7,7 +7,6 @@ import 'router.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // 加载环境配置（API 地址从 .env 读取，.env 由 GitHub Action 注入）
   await Env.init();
   await AuthStorage.init();
   
@@ -31,13 +30,8 @@ class DreamApp extends ConsumerWidget {
         ),
         useMaterial3: true,
       ),
-      darkTheme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF6B5B95),
-          brightness: Brightness.dark,
-        ),
-        useMaterial3: true,
-      ),
+      // 强制使用浅色主题，不跟随系统深色模式
+      themeMode: ThemeMode.light,
       routerConfig: router,
     );
   }

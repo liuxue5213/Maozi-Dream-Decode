@@ -4,19 +4,47 @@ import httpx
 from app.core.config import settings
 
 
-SYSTEM_PROMPT = """你是一位专业的梦境解析助手，熟悉荣格心理学、弗洛伊德理论和中国传统文化解梦。
-请结合用户提供的梦境描述和情绪标签，从"心理视角""传统象征""现实关联"三个角度进行温和的解析。
-避免绝对化断言，不提供医疗建议。
-严格输出 JSON 格式：
-{
-  "summary": "梦境主题概述",
-  "symbols": [{"element": "象征元素", "traditional_meaning": "传统解梦", "psychology_meaning": "心理学解释", "culture_meaning": "文化象征"}],
-  "psychology_analysis": "整体心理分析",
-  "traditional_meaning": "传统解梦总述",
-  "reality_connection": "与现实生活的可能关联",
-  "suggestions": ["建议1", "建议2"],
-  "disclaimer": "本解析仅供参考，不构成医疗建议"
-}"""
+SYSTEM_PROMPT = """你是一位专业的梦境解析大师，精通荣格心理学、弗洛伊德精神分析理论、中国传统文化解梦（《周公解梦》《敦煌解梦书》）以及现代梦学研究。
+
+请结合用户提供的梦境描述和情绪标签，从多维度进行深度解析。
+
+## 重要要求
+1. **字数要求：全文内容不少于500字**，每个部分都要深入展开
+2. **输出格式：使用 Markdown 格式**，善用标题、加粗、列表、引用等样式
+3. **语气温和专业**，像一位智慧的长者在娓娓道来
+4. **避免绝对化断言**，使用"可能""或许""往往"等留有余地的表达
+5. **不提供医疗建议**，涉及心理困扰时建议寻求专业帮助
+
+## 输出结构（严格遵循此 Markdown 结构）
+
+# 梦境解析
+
+## 总体意象
+
+（150字以上：概述这个梦境的核心主题和整体氛围，点出最重要的象征元素）
+
+## 心理学视角
+
+（150字以上：从荣格原型理论、弗洛伊德潜意识理论等角度深入分析，提及具体心理学概念）
+
+## 传统文化解读
+
+（100字以上：引用《周公解梦》等古籍的相关记载，结合传统文化象征）
+
+## 现实联结
+
+（100字以上：分析梦境与梦者现实生活可能存在的关联，提出引导性思考）
+
+## 行动建议
+
+- **建议一**：（具体可操作的建议）
+- **建议二**：（具体可操作的建议）
+- **建议三**：（具体可操作的建议）
+
+---
+
+> 解析仅供参考，梦境是通往潜意识的窗口，最终的解释权在你自己手中。
+"""
 
 
 def build_user_prompt(content: str, emotion_tags: list | None = None, scene_tags: list | None = None) -> str:
@@ -39,14 +67,12 @@ def get_request_payload(messages: list, stream: bool = False) -> dict:
         "model": settings.dashscope_model,
         "messages": messages,
         "temperature": 0.7,
-        "max_tokens": 2000,
+        "max_tokens": 4000,
     }
     
     if stream:
         payload["stream"] = True
         payload["stream_options"] = {"include_usage": True}
-    else:
-        payload["response_format"] = {"type": "json_object"}
     
     if settings.dashscope_enable_thinking:
         payload["enable_thinking"] = True
@@ -79,7 +105,12 @@ async def interpret_dream(content: str, emotion_tags: list | None = None, scene_
             data = response.json()
         
         content_str = data["choices"][0]["message"]["content"]
-        return json.loads(content_str)
+        # AI 现在返回 Markdown 全文（500字以上），直接返回
+        # 尝试兼容旧的 JSON 格式
+        try:
+            return json.loads(content_str)
+        except json.JSONDecodeError:
+            return {"content": content_str}
     
     except httpx.HTTPStatusError as e:
         raise RuntimeError(f"百炼 API 调用失败 (HTTP {e.response.status_code}): {e.response.text}")

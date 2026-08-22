@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:dream_decode/features/encyclopedia/data/encyclopedia_repository.dart';
 import 'package:dream_decode/features/encyclopedia/data/encyclopedia_model.dart';
 
@@ -53,7 +54,16 @@ class _EncyclopediaPageState extends ConsumerState<EncyclopediaPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('解梦百科'), centerTitle: true),
+      appBar: AppBar(
+        title: const Text('解梦百科'),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.person_outline),
+            onPressed: () => context.push('/profile'),
+          ),
+        ],
+      ),
       body: _isLoading ? const Center(child: CircularProgressIndicator()) :
         _error != null ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Text('加载失败'), Text(_error!), ElevatedButton(onPressed: _loadData, child: const Text('重试'))])) :
         Column(children: [
