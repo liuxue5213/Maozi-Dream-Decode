@@ -1,0 +1,60 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.24.0'
+        channel: 'stable'
+        cache: true
+        
+    - name: Setup Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'zulu'
+        java-version: '17'
+        
+    - name: Install Flutter dependencies
+      run: |
+        cd mobile
+        flutter pub get
+        
+    - name: Build Android APK
+      run: |
+        cd mobile
+        flutter build apk --release
+        
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: maozi-dream-decode-apk
+        path: mobile/build/app/outputs/flutter-apk/app-release.apk
+        retention-days: 30
+        
+    - name: Release Summary
+      run: |
+        echo "# 🎉 Android APK 构建成功！" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "## 📦 构建信息" >> $GITHUB_STEP_SUMMARY
+        echo "- **应用名称**: 帽子解梦" >> $GITHUB_STEP_SUMMARY
+        echo "- **包名**: com.maozi.dreamdecode" >> $GITHUB_STEP_SUMMARY
+        echo "- **版本**: 1.0.0" >> $GITHUB_STEP_SUMMARY
+        echo "- **构建时间**: $(date)" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "## 📥 下载方式" >> $GITHUB_STEP_SUMMARY
+        echo "1. 前往 Actions 页面的 'Artifacts' 部分" >> $GITHUB_STEP_SUMMARY
+        echo "2. 下载 `maozi-dream-decode-apk` 文件" >> $GITHUB_STEP_SUMMARY
