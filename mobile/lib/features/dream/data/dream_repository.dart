@@ -1,8 +1,9 @@
 // 梦境仓库 - 连接真实的API
 import 'dart:convert';
 import 'package:dio/dio.dart';
-import '../core/network/dio_client.dart';
-import '../core/env.dart';
+import '../../core/network/dio_client.dart';
+import '../../core/env.dart';
+import 'dream_model.dart';
 
 class DreamRepository {
   final DioClient _dioClient = DioClient();
