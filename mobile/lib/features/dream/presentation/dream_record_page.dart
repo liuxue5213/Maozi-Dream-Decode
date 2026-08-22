@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import '../data/dream_repository.dart';
+import '../data/dream_model.dart';
 
 /// 梦境记录页面
 class DreamRecordPage extends ConsumerStatefulWidget {
@@ -46,12 +48,17 @@ class _DreamRecordPageState extends ConsumerState<DreamRecordPage> {
     setState(() => _isSubmitting = true);
 
     try {
-      // TODO: 调用真实 API 保存梦境并触发解析
-      await Future.delayed(const Duration(seconds: 2));
-      
+      final repository = DreamRepository();
+      await repository.createDream(
+        content: _contentController.text.trim(),
+        emotions: _selectedEmotions,
+        scenes: _selectedScenes,
+        date: DateFormat('yyyy-MM-dd').format(_selectedDate),
+      );
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('梦境已保存，解析完成！')),
+          const SnackBar(content: Text('梦境已保存！')),
         );
         context.go('/');
       }
@@ -80,7 +87,6 @@ class _DreamRecordPageState extends ConsumerState<DreamRecordPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // 梦境描述输入
               Text(
                 '昨晚你梦见了什么？',
                 style: Theme.of(context).textTheme.titleMedium,
@@ -106,7 +112,6 @@ class _DreamRecordPageState extends ConsumerState<DreamRecordPage> {
               ),
               const SizedBox(height: 16),
 
-              // 日期选择
               InkWell(
                 onTap: _selectDate,
                 child: InputDecorator(
@@ -120,7 +125,6 @@ class _DreamRecordPageState extends ConsumerState<DreamRecordPage> {
               ),
               const SizedBox(height: 24),
 
-              // 情绪标签
               Text(
                 '情绪感受（可多选）',
                 style: Theme.of(context).textTheme.titleMedium,
@@ -148,7 +152,6 @@ class _DreamRecordPageState extends ConsumerState<DreamRecordPage> {
               ),
               const SizedBox(height: 24),
 
-              // 场景标签
               Text(
                 '场景元素（可多选）',
                 style: Theme.of(context).textTheme.titleMedium,
@@ -176,7 +179,6 @@ class _DreamRecordPageState extends ConsumerState<DreamRecordPage> {
               ),
               const SizedBox(height: 32),
 
-              // 提交按钮
               FilledButton(
                 onPressed: _isSubmitting ? null : _submit,
                 child: Padding(
@@ -191,15 +193,14 @@ class _DreamRecordPageState extends ConsumerState<DreamRecordPage> {
                               child: CircularProgressIndicator(strokeWidth: 2),
                             ),
                             SizedBox(width: 12),
-                            Text('正在解析...'),
+                            Text('正在保存...'),
                           ],
                         )
-                      : const Text('保存并解析', style: TextStyle(fontSize: 16)),
+                      : const Text('保存梦境', style: TextStyle(fontSize: 16)),
                 ),
               ),
               const SizedBox(height: 16),
 
-              // 免责声明
               Text(
                 'AI 解析结果仅供参考，不构成医疗或心理治疗建议',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
