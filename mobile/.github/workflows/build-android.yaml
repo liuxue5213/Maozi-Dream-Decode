@@ -28,6 +28,21 @@ jobs:
         distribution: 'zulu'
         java-version: '17'
         
+    - name: Fix Android Gradle Wrapper
+      run: |
+        cd mobile
+        # 确保gradle wrapper存在
+        if [ ! -f "android/gradlew" ]; then
+          echo "🔧 生成Gradle Wrapper..."
+          # 使用Flutter生成标准Android项目
+          flutter create --org com.maozi.dreamdecode --project-name maozi_dream_decode --platforms android .
+          chmod +x android/gradlew
+          echo "✅ Gradle Wrapper生成完成"
+        else
+          echo "✅ Gradle Wrapper已存在"
+          chmod +x android/gradlew
+        fi
+        
     - name: Install Flutter dependencies
       run: |
         cd mobile
