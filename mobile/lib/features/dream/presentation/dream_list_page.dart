@@ -150,11 +150,7 @@ class _DreamListPageState extends ConsumerState<DreamListPage> {
                   ],
                 ],
               ),
-              onTap: () {
-                if (dream.interpretation != null) {
-                  context.push('/dream/${dream.id}');
-                }
-              },
+              onTap: () => context.push('/dream/${dream.id}'),
             ),
           );
         },
