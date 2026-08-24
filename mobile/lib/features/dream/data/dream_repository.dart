@@ -228,4 +228,25 @@ class DreamRepository {
 
     return buffer.toString();
   }
+
+  /// 删除梦境（本地 + 尝试API）
+  Future<void> deleteDream(String id) async {
+    // 先删本地（保证删除成功）
+    await LocalDreamStorage.deleteDream(id);
+
+    // 尝试删除服务器数据（本地id以local_开头说明是离线数据，跳过API）
+    if (!id.startsWith('local_')) {
+      try {
+        await _dioClient.dio.delete(
+          '/api/v1/dreams/' + id,
+          options: Options(
+            sendTimeout: const Duration(seconds: 10),
+            receiveTimeout: const Duration(seconds: 10),
+          ),
+        );
+      } catch (e) {
+        print('API删除失败（本地已删除）: ' + e.toString());
+      }
+    }
+  }
 }

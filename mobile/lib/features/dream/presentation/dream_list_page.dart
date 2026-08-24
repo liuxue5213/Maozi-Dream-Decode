@@ -74,6 +74,30 @@ class _DreamListPageState extends ConsumerState<DreamListPage> {
     );
   }
 
+  Future<void> _deleteDream(DreamModel dream) async {
+    await _repository.deleteDream(dream.id);
+    if (mounted) {
+      setState(() => _dreams.remove(dream));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('梦境已删除'),
+          action: SnackBarAction(
+            label: '撤销',
+            onPressed: () async {
+              await _repository.createDream(
+                content: dream.content,
+                emotions: dream.emotions,
+                scenes: dream.scenes,
+                date: dream.date,
+              );
+              _loadDreams();
+            },
+          ),
+        ),
+      );
+    }
+  }
+
   Widget _buildBody() {
     if (_isLoading) {
       return const Center(
@@ -124,8 +148,22 @@ class _DreamListPageState extends ConsumerState<DreamListPage> {
         itemCount: _dreams.length,
         itemBuilder: (context, index) {
           final dream = _dreams[index];
-          return Card(
-            margin: const EdgeInsets.only(bottom: 12),
+          return Dismissible(
+            key: Key(dream.id),
+            direction: DismissDirection.endToStart,
+            background: Container(
+              alignment: Alignment.centerRight,
+              padding: const EdgeInsets.only(right: 24),
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.error,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.delete_outline, color: Colors.white),
+            ),
+            onDismissed: (_) => _deleteDream(dream),
+            child: Card(
+              margin: const EdgeInsets.only(bottom: 12),
             child: ListTile(
               title: Text(
                 dream.content,
@@ -152,6 +190,7 @@ class _DreamListPageState extends ConsumerState<DreamListPage> {
               ),
               onTap: () => context.push('/dream/${dream.id}'),
             ),
+          ),
           );
         },
       ),

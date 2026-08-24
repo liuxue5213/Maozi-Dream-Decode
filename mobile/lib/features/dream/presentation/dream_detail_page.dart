@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:go_router/go_router.dart';
 import 'package:dream_decode/features/dream/data/dream_repository.dart';
 import 'package:dream_decode/features/dream/data/dream_model.dart';
 
@@ -53,6 +54,39 @@ class _DreamDetailPageState extends ConsumerState<DreamDetailPage> {
     }
   }
 
+  Future<void> _confirmDelete() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('删除梦境'),
+        content: const Text('删除后无法恢复，确定要删除这条梦境记录吗？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await _repository.deleteDream(widget.dreamId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('梦境已删除')),
+        );
+        context.pop();
+      }
+    }
+  }
+
   Future<void> _startInterpretation() async {
     if (_dream == null) return;
 
@@ -82,6 +116,12 @@ class _DreamDetailPageState extends ConsumerState<DreamDetailPage> {
       appBar: AppBar(
         title: const Text('梦境详情'),
         centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.delete_outline),
+            onPressed: _confirmDelete,
+          ),
+        ],
       ),
       body: _buildBody(),
     );
