@@ -1,5 +1,5 @@
 from datetime import datetime, date
-from sqlalchemy import BigInteger, Text, String, DateTime, Date, ForeignKey, func, JSON, SmallInteger
+from sqlalchemy import Integer, Text, String, DateTime, Date, ForeignKey, func, JSON, SmallInteger
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.database import Base
 
@@ -7,8 +7,8 @@ from app.core.database import Base
 class Dream(Base):
     __tablename__ = "dreams"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True )
+    user_id: Mapped[int] = mapped_column( ForeignKey("users.id", ondelete="CASCADE"), index=True)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     emotion_tags: Mapped[list | None] = mapped_column(JSON, nullable=True)
     scene_tags: Mapped[list | None] = mapped_column(JSON, nullable=True)

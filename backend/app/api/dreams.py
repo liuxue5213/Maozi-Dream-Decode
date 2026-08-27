@@ -13,6 +13,21 @@ from app.services.bailian import interpret_dream, interpret_dream_stream
 router = APIRouter()
 
 
+async def generate_interpretation(dream: Dream, follow_up_question: str | None = None) -> dict:
+    """Translate provider failures into a safe, client-readable API response."""
+    try:
+        return await interpret_dream(
+            content=dream.content,
+            emotion_tags=dream.emotion_tags,
+            scene_tags=dream.scene_tags,
+            character_tags=dream.character_tags,
+            sleep_quality=dream.sleep_quality,
+            follow_up_question=follow_up_question,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
 @router.post("", response_model=DreamResponse)
 def create_dream(
     req: DreamCreate,
@@ -117,11 +132,7 @@ async def create_interpretation(
     if not dream:
         raise HTTPException(status_code=404, detail="梦境记录不存在")
     
-    result = await interpret_dream(
-        content=dream.content,
-        emotion_tags=dream.emotion_tags,
-        scene_tags=dream.scene_tags,
-    )
+    result = await generate_interpretation(dream, req.follow_up_question if req else None)
     
     interpretation = Interpretation(
         dream_id=dream.id,
@@ -151,6 +162,8 @@ async def create_interpretation_stream(
             content=dream.content,
             emotion_tags=dream.emotion_tags,
             scene_tags=dream.scene_tags,
+            character_tags=dream.character_tags,
+            sleep_quality=dream.sleep_quality,
         ):
             yield f"data: {chunk}\n\n"
     
@@ -168,11 +181,7 @@ async def regenerate_interpretation(
     if not dream:
         raise HTTPException(status_code=404, detail="梦境记录不存在")
     
-    result = await interpret_dream(
-        content=dream.content,
-        emotion_tags=dream.emotion_tags,
-        scene_tags=dream.scene_tags,
-    )
+    result = await generate_interpretation(dream)
     
     interpretation = Interpretation(
         dream_id=dream.id,

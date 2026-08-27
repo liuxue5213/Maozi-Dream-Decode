@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import BigInteger, String, Text, DateTime, func, JSON, SmallInteger
+from sqlalchemy import Integer, String, Text, DateTime, func, JSON, SmallInteger
 from sqlalchemy.orm import Mapped, mapped_column
 from app.core.database import Base
 
@@ -7,7 +7,7 @@ from app.core.database import Base
 class EncyclopediaItem(Base):
     __tablename__ = "encyclopedia_items"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True )
     title: Mapped[str] = mapped_column(String(100), unique=True, index=True)
     category: Mapped[str] = mapped_column(String(50), index=True)  # 动物/自然/身体/场景/事件/颜色
     tags: Mapped[list | None] = mapped_column(JSON, nullable=True)

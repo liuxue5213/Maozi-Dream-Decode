@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import BigInteger, String, DateTime, func
+from sqlalchemy import Integer, String, DateTime, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.database import Base
 
@@ -7,7 +7,7 @@ from app.core.database import Base
 class User(Base):
     __tablename__ = "users"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True )
     phone: Mapped[str | None] = mapped_column(String(20), unique=True, nullable=True)
     nickname: Mapped[str] = mapped_column(String(50), default="梦友")
     avatar: Mapped[str | None] = mapped_column(String(255), nullable=True)

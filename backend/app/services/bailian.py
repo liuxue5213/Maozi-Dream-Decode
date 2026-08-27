@@ -47,12 +47,25 @@ SYSTEM_PROMPT = """你是一位专业的梦境解析大师，精通荣格心理�
 """
 
 
-def build_user_prompt(content: str, emotion_tags: list | None = None, scene_tags: list | None = None) -> str:
+def build_user_prompt(
+    content: str,
+    emotion_tags: list | None = None,
+    scene_tags: list | None = None,
+    character_tags: list | None = None,
+    sleep_quality: int | None = None,
+    follow_up_question: str | None = None,
+) -> str:
     parts = [f"梦境描述：{content}"]
     if emotion_tags:
         parts.append(f"情绪标签：{'、'.join(emotion_tags)}")
     if scene_tags:
         parts.append(f"场景标签：{'、'.join(scene_tags)}")
+    if character_tags:
+        parts.append(f"人物标签：{'、'.join(character_tags)}")
+    if sleep_quality:
+        parts.append(f"醒后睡眠感受评分（1-5）：{sleep_quality}")
+    if follow_up_question:
+        parts.append(f"梦者特别想了解的问题：{follow_up_question}")
     return "\n".join(parts)
 
 
@@ -80,12 +93,21 @@ def get_request_payload(messages: list, stream: bool = False) -> dict:
     return payload
 
 
-async def interpret_dream(content: str, emotion_tags: list | None = None, scene_tags: list | None = None) -> dict:
+async def interpret_dream(
+    content: str,
+    emotion_tags: list | None = None,
+    scene_tags: list | None = None,
+    character_tags: list | None = None,
+    sleep_quality: int | None = None,
+    follow_up_question: str | None = None,
+) -> dict:
     """调用百炼 API 解析梦境，返回结构化结果"""
     if not settings.dashscope_api_key:
         raise RuntimeError("未配置 DASHSCOPE_API_KEY，无法调用 AI 解析")
     
-    user_prompt = build_user_prompt(content, emotion_tags, scene_tags)
+    user_prompt = build_user_prompt(
+        content, emotion_tags, scene_tags, character_tags, sleep_quality, follow_up_question
+    )
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "user", "content": user_prompt},
@@ -120,12 +142,18 @@ async def interpret_dream(content: str, emotion_tags: list | None = None, scene_
         raise RuntimeError(f"百炼 API 返回格式异常: {str(e)}")
 
 
-async def interpret_dream_stream(content: str, emotion_tags: list | None = None, scene_tags: list | None = None):
+async def interpret_dream_stream(
+    content: str,
+    emotion_tags: list | None = None,
+    scene_tags: list | None = None,
+    character_tags: list | None = None,
+    sleep_quality: int | None = None,
+):
     """流式调用百炼 API（用于前端打字机效果）"""
     if not settings.dashscope_api_key:
         raise RuntimeError("未配置 DASHSCOPE_API_KEY，无法调用 AI 解析")
     
-    user_prompt = build_user_prompt(content, emotion_tags, scene_tags)
+    user_prompt = build_user_prompt(content, emotion_tags, scene_tags, character_tags, sleep_quality)
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "user", "content": user_prompt},

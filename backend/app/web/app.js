@@ -7,6 +7,24 @@ const API_BASE = '/api/v1';
 let currentToken = localStorage.getItem('dream_token') || null;
 let currentUser = JSON.parse(localStorage.getItem('dream_user') || 'null');
 
+function escapeHtml(value) {
+    return String(value ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+}
+
+function renderPlainMarkdown(value) {
+    return escapeHtml(value)
+        .replace(/^### (.*)$/gm, '<h4>$1</h4>')
+        .replace(/^## (.*)$/gm, '<h3>$1</h3>')
+        .replace(/^# (.*)$/gm, '<h2>$1</h2>')
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\n/g, '<br>');
+}
+
 // ===== API 请求 =====
 
 async function apiRequest(endpoint, options = {}) {
@@ -137,10 +155,10 @@ async function loadDreams() {
                 <div class="dream-card-header">
                     <span class="dream-card-date">${dream.dream_date}</span>
                 </div>
-                <div class="dream-card-content">${dream.content}</div>
+                <div class="dream-card-content">${escapeHtml(dream.content)}</div>
                 ${dream.emotion_tags?.length ? `
                     <div class="dream-card-tags">
-                        ${dream.emotion_tags.map(t => `<span class="dream-tag">${t}</span>`).join('')}
+                        ${dream.emotion_tags.map(t => `<span class="dream-tag">${escapeHtml(t)}</span>`).join('')}
                     </div>
                 ` : ''}
             </div>
@@ -158,13 +176,17 @@ async function saveDream(formData) {
             method: 'POST',
             body: formData,
         });
-        showToast('梦境已保存，正在解析...', 'success');
+        showToast('梦境已保存', 'success');
         
-        // 自动触发解析并跳转到解析结果页
-        await apiRequest(`/dreams/${dream.id}/interpretations`, { method: 'POST' });
-        showToast('解析完成！', 'success');
+        // 尝试自动解析（解析失败不影响保存成功）
+        try {
+            showToast('正在进行 AI 解析...', 'info');
+            await apiRequest(`/dreams/${dream.id}/interpretations`, { method: 'POST' });
+            showToast('解析完成！', 'success');
+        } catch (interpError) {
+            showToast('已保存，AI 解析暂不可用，可在详情页手动解析', 'info');
+        }
         
-        // 跳转到解析结果页面
         showInterpretation(dream.id);
         return dream;
     } catch (error) {
@@ -209,24 +231,31 @@ async function showInterpretation(dreamId) {
         
         // 显示最新的解析结果
         const result = interpretations[0].result_json;
+        if (result && result.content) {
+            container.innerHTML = `
+                <div class="interpretation-item"><h4>📝 梦境内容</h4><p>${escapeHtml(dream.content)}</p></div>
+                <div class="interpretation-item markdown-result">${renderPlainMarkdown(result.content)}</div>
+                <div class="disclaimer">⚠️ AI 解析仅供参考，不构成医疗或心理治疗建议。</div>`;
+            return;
+        }
         const symbols = result.symbols || [];
         const suggestions = result.suggestions || [];
         
         container.innerHTML = `
             <div class="interpretation-item">
                 <h4>📝 梦境内容</h4>
-                <p>${dream.content}</p>
+                <p>${escapeHtml(dream.content)}</p>
             </div>
             ${dream.emotion_tags?.length ? `
                 <div class="interpretation-item">
                     <h4>🎭 情绪标签</h4>
-                    <p>${dream.emotion_tags.join('、')}</p>
+                    <p>${dream.emotion_tags.map(escapeHtml).join('、')}</p>
                 </div>
             ` : ''}
             
             <div class="interpretation-item">
                 <h4>💡 梦境主题</h4>
-                <p>${result.summary || '暂无'}</p>
+                <p>${escapeHtml(result.summary || '暂无')}</p>
             </div>
             
             ${symbols.length ? `
@@ -234,11 +263,11 @@ async function showInterpretation(dreamId) {
                     <h4>🔮 象征元素</h4>
                     ${symbols.map(s => `
                         <div class="symbol-item">
-                            <span class="symbol-label">${s.element}</span>
+                            <span class="symbol-label">${escapeHtml(s.element)}</span>
                             <div>
-                                ${s.traditional_meaning ? `<p><strong>传统：</strong>${s.traditional_meaning}</p>` : ''}
-                                ${s.psychology_meaning ? `<p><strong>心理：</strong>${s.psychology_meaning}</p>` : ''}
-                                ${s.culture_meaning ? `<p><strong>文化：</strong>${s.culture_meaning}</p>` : ''}
+                                ${s.traditional_meaning ? `<p><strong>传统：</strong>${escapeHtml(s.traditional_meaning)}</p>` : ''}
+                                ${s.psychology_meaning ? `<p><strong>心理：</strong>${escapeHtml(s.psychology_meaning)}</p>` : ''}
+                                ${s.culture_meaning ? `<p><strong>文化：</strong>${escapeHtml(s.culture_meaning)}</p>` : ''}
                             </div>
                         </div>
                     `).join('')}
@@ -248,21 +277,21 @@ async function showInterpretation(dreamId) {
             ${result.psychology_analysis ? `
                 <div class="interpretation-item">
                     <h4>🧠 心理学视角</h4>
-                    <p>${result.psychology_analysis}</p>
+                <p>${escapeHtml(result.psychology_analysis)}</p>
                 </div>
             ` : ''}
             
             ${result.traditional_meaning ? `
                 <div class="interpretation-item">
                     <h4>📜 传统解梦</h4>
-                    <p>${result.traditional_meaning}</p>
+                <p>${escapeHtml(result.traditional_meaning)}</p>
                 </div>
             ` : ''}
             
             ${result.reality_connection ? `
                 <div class="interpretation-item">
                     <h4>🔗 现实关联</h4>
-                    <p>${result.reality_connection}</p>
+                <p>${escapeHtml(result.reality_connection)}</p>
                 </div>
             ` : ''}
             
@@ -270,13 +299,13 @@ async function showInterpretation(dreamId) {
                 <div class="interpretation-item">
                     <h4>✨ 自我觉察建议</h4>
                     <ol style="padding-left: 20px;">
-                        ${suggestions.map(s => `<li style="margin-bottom: 8px; line-height: 1.6;">${s}</li>`).join('')}
+                        ${suggestions.map(s => `<li style="margin-bottom: 8px; line-height: 1.6;">${escapeHtml(s)}</li>`).join('')}
                     </ol>
                 </div>
             ` : ''}
             
             <div class="disclaimer">
-                ⚠️ ${result.disclaimer || '本解析由 AI 生成，仅供参考，不构成医疗或心理治疗建议。如有严重心理困扰，请寻求专业心理咨询师帮助。'}
+                ⚠️ ${escapeHtml(result.disclaimer || '本解析由 AI 生成，仅供参考，不构成医疗或心理治疗建议。如有严重心理困扰，请寻求专业心理咨询师帮助。')}
             </div>
         `;
     } catch (error) {
