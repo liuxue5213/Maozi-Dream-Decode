@@ -69,6 +69,13 @@ jobs:
         
         sed -i 's/android:label="[^"]*"/android:label="帽子解梦"/' android/app/src/main/AndroidManifest.xml
         
+        # 允许明文HTTP（连接局域网 http://IP:60185 必需）
+        sed -i 's|<application|<application android:usesCleartextTraffic="true"|' android/app/src/main/AndroidManifest.xml
+        
+        # 确保Release包含INTERNET权限（Flutter模板默认只在debug/profile有）
+        grep -q 'android.permission.INTERNET' android/app/src/main/AndroidManifest.xml || \
+          sed -i 's|<application|<uses-permission android:name="android.permission.INTERNET"/>\n    <application|' android/app/src/main/AndroidManifest.xml
+        
         mkdir -p android/app/src/main/res/values
         cat > android/app/src/main/res/values/strings.xml << 'XMLEOF'
         <?xml version="1.0" encoding="utf-8"?>
