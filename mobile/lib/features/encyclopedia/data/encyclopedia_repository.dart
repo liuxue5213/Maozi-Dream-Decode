@@ -21,8 +21,11 @@ class EncyclopediaRepository {
         queryParams['category'] = category;
       }
 
+      final endpoint = keyword != null && keyword.isNotEmpty
+          ? 'encyclopedia/search'
+          : 'encyclopedia';
       final response = await _dioClient.dio.get(
-        '/api/v1/encyclopedia',
+        endpoint,
         queryParameters: queryParams,
         options: Options(
           sendTimeout: const Duration(seconds: 10),
@@ -31,7 +34,9 @@ class EncyclopediaRepository {
       );
 
       if (response.statusCode == 200) {
-        final List<dynamic> data = response.data;
+        final data = response.data is Map<String, dynamic>
+            ? response.data['items'] as List<dynamic>? ?? []
+            : response.data as List<dynamic>;
         if (data.isNotEmpty) {
           return data.map((item) => EncyclopediaModel.fromJson(item)).toList();
         }
@@ -65,7 +70,7 @@ class EncyclopediaRepository {
   Future<List<String>> fetchCategories() async {
     try {
       final response = await _dioClient.dio.get(
-        '/api/v1/encyclopedia/categories',
+        'encyclopedia/categories',
         options: Options(
           sendTimeout: const Duration(seconds: 10),
           receiveTimeout: const Duration(seconds: 10),
@@ -75,7 +80,9 @@ class EncyclopediaRepository {
       if (response.statusCode == 200) {
         final List<dynamic> data = response.data;
         if (data.isNotEmpty) {
-          final categories = data.map((e) => e.toString()).toList();
+          final categories = data
+              .map((e) => (e as Map<String, dynamic>)['category'].toString())
+              .toList();
           return ['全部', ...categories];
         }
       }
@@ -89,7 +96,7 @@ class EncyclopediaRepository {
   /// 获取百科词条详情
   Future<EncyclopediaModel?> getEncyclopediaDetail(String id) async {
     try {
-      final response = await _dioClient.dio.get('/api/v1/encyclopedia/$id');
+      final response = await _dioClient.dio.get('encyclopedia/$id');
       if (response.statusCode == 200) {
         return EncyclopediaModel.fromJson(response.data);
       }

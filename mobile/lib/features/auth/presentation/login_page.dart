@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../data/auth_storage.dart';
+import '../../../core/network/dio_client.dart';
 
 /// 登录/注册页面
 class LoginPage extends ConsumerStatefulWidget {
@@ -31,9 +32,18 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     setState(() => _isLoading = true);
     
     try {
-      // TODO: 调用真实 API
-      await Future.delayed(const Duration(seconds: 1));
-      await AuthStorage.saveToken('mock_token_${_phoneController.text}');
+      final response = await DioClient().dio.post(
+        _isLogin ? 'auth/login' : 'auth/register',
+        data: {
+          'phone': _phoneController.text.trim(),
+          'password': _passwordController.text,
+        },
+      );
+      final token = (response.data as Map<String, dynamic>)['access_token']?.toString();
+      if (token == null || token.isEmpty) {
+        throw StateError('服务器没有返回有效的登录凭证');
+      }
+      await AuthStorage.saveToken(token);
       if (mounted) context.go('/');
     } catch (e) {
       if (mounted) {

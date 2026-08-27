@@ -15,12 +15,19 @@ class EncyclopediaModel {
   });
 
   factory EncyclopediaModel.fromJson(Map<String, dynamic> json) {
+    final sections = <String>[
+      if (json['traditional_meaning'] != null) '传统解读：${json['traditional_meaning']}',
+      if (json['psychology_meaning'] != null) '心理学视角：${json['psychology_meaning']}',
+      if (json['culture_meaning'] != null) '文化象征：${json['culture_meaning']}',
+      if (json['advice'] != null) '自我觉察建议：${json['advice']}',
+    ];
+    final brief = json['brief'] ?? json['psychology_meaning'] ?? json['traditional_meaning'] ?? '';
     return EncyclopediaModel(
       id: json['id']?.toString() ?? '',
       title: json['title']?.toString() ?? '',
       category: json['category']?.toString() ?? '',
-      brief: json['brief']?.toString() ?? '',
-      content: json['content']?.toString(),
+      brief: brief.toString(),
+      content: json['content']?.toString() ?? (sections.isEmpty ? null : sections.join('\n\n')),
     );
   }
 

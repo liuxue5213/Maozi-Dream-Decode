@@ -36,7 +36,29 @@ class _DreamDetailPageState extends ConsumerState<DreamDetailPage> {
     });
 
     try {
-      final dream = await _repository.getDreamDetail(widget.dreamId);
+      var dream = await _repository.getDreamDetail(widget.dreamId);
+
+      // 服务器已有解析但本地未缓存 -> 自动拉取展示
+      if (dream != null &&
+          (dream.interpretation == null || dream.interpretation!.isEmpty) &&
+          dream.hasInterpretation) {
+        final existing = await _repository.getLatestInterpretation(
+          dream.serverId?.toString() ?? widget.dreamId.replaceFirst('srv_', ''),
+        );
+        if (existing != null && existing.isNotEmpty) {
+          dream = DreamModel(
+            id: dream.id,
+            content: dream.content,
+            createdAt: dream.createdAt,
+            emotions: dream.emotions,
+            scenes: dream.scenes,
+            date: dream.date,
+            interpretation: existing,
+            hasInterpretation: true,
+          );
+        }
+      }
+
       if (mounted) {
         setState(() {
           _dream = dream;

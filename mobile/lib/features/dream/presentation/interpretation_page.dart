@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:dream_decode/core/network/dio_client.dart';
 
 /// 梦境解析结果页面
 class InterpretationPage extends ConsumerStatefulWidget {
@@ -22,45 +24,46 @@ class _InterpretationPageState extends ConsumerState<InterpretationPage> {
   }
 
   Future<void> _loadInterpretation() async {
-    // TODO: 调用 API 获取解析结果
-    // GET /api/v1/dreams/{widget.dreamId} 获取梦境
-    // GET /api/v1/interpretations/{id} 获取解析
-    
-    // 模拟加载
-    await Future.delayed(const Duration(seconds: 1));
-    
-    if (mounted) {
+    try {
+      final response = await DioClient().dio.get('dreams/${widget.dreamId}/interpretations');
+      final interpretations = response.data as List<dynamic>;
+      final result = interpretations.isEmpty
+          ? null
+          : (interpretations.first as Map<String, dynamic>)['result_json'];
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _result = result is Map<String, dynamic> ? result : {'content': result?.toString()};
+        });
+      }
+    } catch (e) {
+      if (mounted) {
       setState(() {
         _isLoading = false;
-        _result = {
-          'summary': '此梦反映了你近期内心的不安与对失控的恐惧，可能与工作或生活中面临的压力事件有关。',
-          'symbols': [
-            {'element': '坠落', 'meaning': '失控感、恐惧、压力'},
-            {'element': '高楼', 'meaning': '目标、地位、压力来源'},
-          ],
-          'psychology_analysis': '荣格认为，坠落梦常与「阴影原型」相关，代表你正在回避的某些内在恐惧或未被接纳的自我部分。这种梦在压力期尤为常见。',
-          'traditional_meaning': '《周公解梦》云：坠崖落树主大败。但现代解梦更倾向于将其视为心理状态的反映，而非预兆。',
-          'reality_connection': '最近是否感到某些事情失去了控制？坠落的梦提醒你关注生活中的「支撑点」——你依靠的是什么？',
-          'suggestions': [
-            '记录下最近让你感到压力的事件，看看是否有共同的主题',
-            '尝试「落地练习」：当你感到焦虑时，感受双脚与地面的接触，做 5 次深呼吸',
-            '与信任的朋友聊聊你的感受，分享本身就是一种释放',
-          ],
-        };
+        _result = null;
       });
+      }
     }
   }
 
   Future<void> _regenerate() async {
     setState(() => _isLoading = true);
-    // TODO: 调用重新生成 API
-    // POST /api/v1/dreams/{widget.dreamId}/interpretations/regenerate
-    await Future.delayed(const Duration(seconds: 1));
-    if (mounted) {
-      setState(() => _isLoading = false);
+    try {
+      final response = await DioClient().dio.post('dreams/${widget.dreamId}/interpretations/regenerate');
+      if (mounted) {
+        setState(() {
+          _result = (response.data as Map<String, dynamic>)['result_json'] as Map<String, dynamic>?;
+          _isLoading = false;
+        });
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('已重新生成解析')),
       );
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('重新生成失败：$e')));
+      }
     }
   }
 
@@ -79,7 +82,9 @@ class _InterpretationPageState extends ConsumerState<InterpretationPage> {
           IconButton(
             icon: const Icon(Icons.share_outlined),
             onPressed: () {
-              // TODO: 分享海报
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('分享海报功能即将推出')),
+              );
             },
             tooltip: '分享',
           ),
@@ -117,6 +122,19 @@ class _InterpretationPageState extends ConsumerState<InterpretationPage> {
               child: const Text('重新生成'),
             ),
           ],
+        ),
+      );
+    }
+
+    final markdown = _result!['content']?.toString();
+    if (markdown != null && markdown.isNotEmpty) {
+      return SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: MarkdownBody(data: markdown),
+          ),
         ),
       );
     }

@@ -19,6 +19,7 @@ class _DreamRecordPageState extends ConsumerState<DreamRecordPage> {
   final List<String> _selectedEmotions = [];
   final List<String> _selectedScenes = [];
   DateTime _selectedDate = DateTime.now();
+  int? _sleepQuality;
   bool _isSubmitting = false;
 
   static const _emotions = ['恐惧', '焦虑', '开心', '悲伤', '愤怒', '平静', '困惑', '兴奋'];
@@ -54,6 +55,7 @@ class _DreamRecordPageState extends ConsumerState<DreamRecordPage> {
         emotions: _selectedEmotions,
         scenes: _selectedScenes,
         date: DateFormat('yyyy-MM-dd').format(_selectedDate),
+        sleepQuality: _sleepQuality,
       );
 
       if (mounted) {
@@ -122,6 +124,25 @@ class _DreamRecordPageState extends ConsumerState<DreamRecordPage> {
                   ),
                   child: Text(DateFormat('yyyy-MM-dd').format(_selectedDate)),
                 ),
+              ),
+              const SizedBox(height: 24),
+
+              DropdownButtonFormField<int>(
+                value: _sleepQuality,
+                decoration: const InputDecoration(
+                  labelText: '醒后睡眠感受（可选）',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.bedtime_outlined),
+                ),
+                hint: const Text('选择 1–5 分'),
+                items: const [
+                  DropdownMenuItem(value: 1, child: Text('1 分 · 很差')),
+                  DropdownMenuItem(value: 2, child: Text('2 分 · 较差')),
+                  DropdownMenuItem(value: 3, child: Text('3 分 · 一般')),
+                  DropdownMenuItem(value: 4, child: Text('4 分 · 不错')),
+                  DropdownMenuItem(value: 5, child: Text('5 分 · 很好')),
+                ],
+                onChanged: (value) => setState(() => _sleepQuality = value),
               ),
               const SizedBox(height: 24),
 

@@ -1,8 +1,6 @@
 // 梦境仓库 - API优先，本地存储后备
-import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:dream_decode/core/network/dio_client.dart';
-import 'package:dream_decode/core/env.dart';
 import 'dream_model.dart';
 import 'local_dream_storage.dart';
 
@@ -13,7 +11,7 @@ class DreamRepository {
   Future<List<DreamModel>> fetchDreams() async {
     try {
       final response = await _dioClient.dio.get(
-        '/api/v1/dreams',
+        'dreams',
         options: Options(
           sendTimeout: const Duration(seconds: 10),
           receiveTimeout: const Duration(seconds: 10),
@@ -37,24 +35,42 @@ class DreamRepository {
     return LocalDreamStorage.getDreams();
   }
 
-  /// 获取梦境详情
+  /// 获取梦境详情（本地优先，服务器兜底）
   Future<DreamModel?> getDreamDetail(String id) async {
+    // 先查本地
+    final localDreams = await LocalDreamStorage.getDreams();
     try {
-      final response = await _dioClient.dio.get('/api/v1/dreams/$id');
+      return localDreams.firstWhere((d) => d.id == id);
+    } catch (_) {}
+
+    // 提取服务器数字ID：srv_10 -> 10；local_xxx 无法查询服务器
+    final numericId = int.tryParse(id.replaceFirst('srv_', ''));
+    if (numericId == null) return null;
+
+    try {
+      final response = await _dioClient.dio.get('dreams/' + numericId.toString());
       if (response.statusCode == 200) {
-        return DreamModel.fromJson(response.data);
+        final dream = DreamModel.fromJson(response.data);
+        final interpretation = await getLatestInterpretation(numericId.toString());
+        if (interpretation == null) return dream;
+        final updated = DreamModel(
+          id: dream.id,
+          content: dream.content,
+          createdAt: dream.createdAt,
+          emotions: dream.emotions,
+          scenes: dream.scenes,
+          date: dream.date,
+          interpretation: interpretation,
+          hasInterpretation: true,
+        );
+        await LocalDreamStorage.saveDream(updated);
+        return updated;
       }
     } catch (e) {
       print('API获取详情失败: $e');
     }
     
-    // 本地查找
-    final dreams = await LocalDreamStorage.getDreams();
-    try {
-      return dreams.firstWhere((d) => d.id == id);
-    } catch (e) {
-      return null;
-    }
+    return null;
   }
 
   /// 创建新梦境（本地保存 + 尝试API）
@@ -63,6 +79,7 @@ class DreamRepository {
     required List<String> emotions,
     required List<String> scenes,
     required String date,
+    int? sleepQuality,
   }) async {
     final dream = DreamModel(
       id: 'local_${DateTime.now().millisecondsSinceEpoch}',
@@ -79,12 +96,13 @@ class DreamRepository {
     // 尝试API保存
     try {
       final response = await _dioClient.dio.post(
-        '/api/v1/dreams',
+        'dreams',
         data: {
           'content': content,
           'emotion_tags': emotions,
           'scene_tags': scenes,
           'dream_date': date,
+          if (sleepQuality != null) 'sleep_quality': sleepQuality,
         },
         options: Options(
           headers: {'Content-Type': 'application/json'},
@@ -117,11 +135,18 @@ class DreamRepository {
     } catch (e) {
       dream = null;
     }
+    if (dream != null && dream.interpretation != null && dream.interpretation!.isNotEmpty) {
+      return dream.interpretation!; // 已有解析直接返回
+    }
+
+    // 服务器数字ID（srv_ 前缀）
+    final serverNumericId = int.tryParse(dreamId.replaceFirst('srv_', ''));
 
     // 尝试API解析
     try {
+      if (serverNumericId == null) throw Exception('离线梦境无法调用服务器AI');
       final response = await _dioClient.dio.post(
-        '/api/v1/dreams/' + dreamId + '/interpretations',
+        'dreams/' + serverNumericId.toString() + '/interpretations',
         options: Options(
           sendTimeout: const Duration(seconds: 60),
           receiveTimeout: const Duration(seconds: 60),
@@ -172,6 +197,7 @@ class DreamRepository {
               scenes: dream.scenes,
               date: dream.date,
               interpretation: result.toString(),
+              hasInterpretation: true,
             );
             await LocalDreamStorage.deleteDream(dream.id);
             await LocalDreamStorage.saveDream(updated);
@@ -195,10 +221,49 @@ class DreamRepository {
         date: dream.date,
         interpretation: localResult,
       );
+
       await LocalDreamStorage.deleteDream(dream.id);
       await LocalDreamStorage.saveDream(updated);
     }
     return localResult;
+  }
+
+  Future<String?> getLatestInterpretation(String dreamId) async {
+    try {
+      final response = await _dioClient.dio.get('dreams/$dreamId/interpretations');
+      final data = response.data as List<dynamic>;
+      if (data.isEmpty) return null;
+      final result = (data.first as Map<String, dynamic>)['result_json'];
+      if (result is String) return result;
+      if (result is Map<String, dynamic>) {
+        return result['content']?.toString() ?? _formatStructuredInterpretation(result);
+      }
+    } catch (e) {
+      print('API获取解析结果失败: $e');
+    }
+    return null;
+  }
+
+  String _formatStructuredInterpretation(Map<String, dynamic> result) {
+    final buffer = StringBuffer();
+    if (result['summary'] != null) buffer.writeln('## ${result['summary']}');
+    if (result['psychology_analysis'] != null) {
+      buffer.writeln('\n### 心理学视角\n${result['psychology_analysis']}');
+    }
+    if (result['traditional_meaning'] != null) {
+      buffer.writeln('\n### 传统文化解读\n${result['traditional_meaning']}');
+    }
+    if (result['reality_connection'] != null) {
+      buffer.writeln('\n### 现实联结\n${result['reality_connection']}');
+    }
+    final suggestions = result['suggestions'] as List<dynamic>?;
+    if (suggestions != null && suggestions.isNotEmpty) {
+      buffer.writeln('\n### 行动建议');
+      for (final item in suggestions) {
+        buffer.writeln('- $item');
+      }
+    }
+    return buffer.toString();
   }
 
   /// 生成本地基础解析（API不可用时的后备）
@@ -234,11 +299,12 @@ class DreamRepository {
     // 先删本地（保证删除成功）
     await LocalDreamStorage.deleteDream(id);
 
-    // 尝试删除服务器数据（本地id以local_开头说明是离线数据，跳过API）
-    if (!id.startsWith('local_')) {
+    // 尝试删除服务器数据（仅当存在数字ID时调用API）
+    final delNumericId = int.tryParse(id.replaceFirst('srv_', ''));
+    if (delNumericId != null) {
       try {
         await _dioClient.dio.delete(
-          '/api/v1/dreams/' + id,
+          'dreams/' + delNumericId.toString(),
           options: Options(
             sendTimeout: const Duration(seconds: 10),
             receiveTimeout: const Duration(seconds: 10),

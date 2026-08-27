@@ -14,10 +14,11 @@ final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: '/',
     redirect: (context, state) {
-      final isLoggedIn = AuthStorage.isLoggedIn;
+      // 游客模式：不再强制登录，但保留登录页入口
       final isLoginRoute = state.matchedLocation == '/login';
-      
-      if (!isLoggedIn && !isLoginRoute) return '/login';
+      final isLoggedIn = AuthStorage.isLoggedIn;
+
+      // 已登录用户访问登录页则回首页；游客可直接浏览应用
       if (isLoggedIn && isLoginRoute) return '/';
       return null;
     },

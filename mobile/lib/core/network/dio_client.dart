@@ -8,7 +8,8 @@ class DioClient {
 
   DioClient() {
     dio = Dio(BaseOptions(
-      baseUrl: '${Env.apiBaseUrl}/api/v1',
+      // Keep the trailing slash so relative endpoints resolve below /api/v1/.
+      baseUrl: '${Env.apiBaseUrl}/api/v1/',
       connectTimeout: const Duration(seconds: 15),
       receiveTimeout: const Duration(seconds: 60),
       headers: {'Content-Type': 'application/json'},

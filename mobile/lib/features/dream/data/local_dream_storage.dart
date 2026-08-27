@@ -10,6 +10,7 @@ class LocalDreamStorage {
   static Future<void> saveDream(DreamModel dream) async {
     final prefs = await SharedPreferences.getInstance();
     final dreams = await getDreams();
+    dreams.removeWhere((item) => item.id == dream.id);
     dreams.insert(0, dream);
     final jsonList = dreams.map((d) => jsonEncode(d.toJson())).toList();
     await prefs.setStringList(_keyDreams, jsonList);
