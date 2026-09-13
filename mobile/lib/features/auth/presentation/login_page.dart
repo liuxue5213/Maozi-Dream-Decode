@@ -44,6 +44,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         throw StateError('服务器没有返回有效的登录凭证');
       }
       await AuthStorage.saveToken(token);
+      final user = (response.data as Map<String, dynamic>)['user'];
+      if (user is Map<String, dynamic> && user['nickname'] != null) {
+        await AuthStorage.saveNickname(user['nickname'].toString());
+      }
       if (mounted) context.go('/');
     } catch (e) {
       if (mounted) {

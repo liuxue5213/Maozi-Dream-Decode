@@ -1,4 +1,6 @@
 // 梦境仓库 - API优先，本地存储后备
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:dream_decode/core/network/dio_client.dart';
 import 'dream_model.dart';
@@ -141,10 +143,12 @@ class DreamRepository {
 
     // 服务器数字ID（srv_ 前缀）
     final serverNumericId = int.tryParse(dreamId.replaceFirst('srv_', ''));
+    if (serverNumericId == null) {
+      throw Exception('当前梦境未同步到服务器，无法调用 AI 解析');
+    }
 
     // 尝试API解析
     try {
-      if (serverNumericId == null) throw Exception('离线梦境无法调用服务器AI');
       final response = await _dioClient.dio.post(
         'dreams/' + serverNumericId.toString() + '/interpretations',
         options: Options(
@@ -206,26 +210,72 @@ class DreamRepository {
         }
       }
     } catch (e) {
-      print('API解析失败，生成本地解析: ' + e.toString());
+      print('API解析失败: ' + e.toString());
+      throw Exception('AI 解析暂时不可用，请检查网络后重试');
     }
 
-    // API失败时生成本地基础解析
-    final localResult = _generateLocalInterpretation(dream);
-    if (dream != null) {
-      final updated = DreamModel(
-        id: dream.id,
-        content: dream.content,
-        createdAt: dream.createdAt,
-        emotions: dream.emotions,
-        scenes: dream.scenes,
-        date: dream.date,
-        interpretation: localResult,
-      );
+    throw Exception('AI 解析暂时不可用，请检查网络后重试');
+  }
 
-      await LocalDreamStorage.deleteDream(dream.id);
-      await LocalDreamStorage.saveDream(updated);
+  /// 流式 AI 解析（打字机效果）：逐段返回增量文本
+  Stream<String> interpretDreamStream(String dreamId) async* {
+    final serverNumericId = int.tryParse(dreamId.replaceFirst('srv_', ''));
+    if (serverNumericId == null) {
+      throw Exception('当前梦境未同步到服务器，无法调用 AI 解析');
     }
-    return localResult;
+
+    final response = await _dioClient.dio.post(
+      'dreams/$serverNumericId/interpretations/stream',
+      options: Options(
+        responseType: ResponseType.stream,
+        sendTimeout: const Duration(seconds: 30),
+        receiveTimeout: const Duration(minutes: 5),
+      ),
+    );
+
+    final lines = response.data.stream
+        .transform(utf8.decoder)
+        .transform(const LineSplitter());
+    await for (final line in lines) {
+      if (!line.startsWith('data: ')) continue;
+      final payload = line.substring(6).trim();
+      if (payload.isEmpty) continue;
+      final Map<String, dynamic> chunk;
+      try {
+        chunk = jsonDecode(payload) as Map<String, dynamic>;
+      } catch (_) {
+        continue;
+      }
+      if (chunk['error'] != null) {
+        throw Exception(chunk['error'].toString());
+      }
+      if (chunk['done'] == true) break;
+      final text = chunk['content']?.toString() ?? '';
+      if (text.isNotEmpty) yield text;
+    }
+  }
+
+  /// 把解析结果写入本地缓存
+  Future<void> saveInterpretation(String dreamId, String text) async {
+    final dreams = await LocalDreamStorage.getDreams();
+    DreamModel? dream;
+    try {
+      dream = dreams.firstWhere((d) => d.id == dreamId);
+    } catch (_) {
+      return;
+    }
+    final updated = DreamModel(
+      id: dream.id,
+      content: dream.content,
+      createdAt: dream.createdAt,
+      emotions: dream.emotions,
+      scenes: dream.scenes,
+      date: dream.date,
+      interpretation: text,
+      hasInterpretation: true,
+    );
+    await LocalDreamStorage.deleteDream(dream.id);
+    await LocalDreamStorage.saveDream(updated);
   }
 
   Future<String?> getLatestInterpretation(String dreamId) async {
@@ -263,34 +313,6 @@ class DreamRepository {
         buffer.writeln('- $item');
       }
     }
-    return buffer.toString();
-  }
-
-  /// 生成本地基础解析（API不可用时的后备）
-  String _generateLocalInterpretation(DreamModel? dream) {
-    if (dream == null) return '暂无法解析此梦境';
-
-    final emotions = dream.emotions.isEmpty ? ['平静'] : dream.emotions;
-    final scenes = dream.scenes.isEmpty ? ['日常生活'] : dream.scenes;
-
-    final buffer = StringBuffer();
-    buffer.writeln('## 梦境概览\n');
-    buffer.writeln('你的梦境中出现了一些值得关注的元素。整体情绪基调偏向**' + emotions.join('、') + '**，主要场景包括' + scenes.join('、') + '。\n');
-    buffer.writeln('## 情绪分析\n');
-    buffer.writeln('从心理学角度看，梦中出现的**' + emotions.first + '**情绪往往反映了你近期潜意识的状态。弗洛伊德认为梦是"通往潜意识的皇家大道"，这种情绪的出现可能在提示你关注日常生活中被忽略的感受。\n');
-    buffer.writeln('## 场景象征\n');
-    for (final s in scenes) {
-      buffer.writeln('- **' + s + '**：这是梦境中的重要符号，可能与你的现实处境存在潜在联结');
-    }
-    buffer.writeln('\n## 传统文化视角\n');
-    buffer.writeln('《周公解梦》中，' + scenes.first + '相关的梦境多与人生阶段的转变有关。传统文化认为梦是内心与天地沟通的一种方式，不必过分紧张，也不宜完全忽视。\n');
-    buffer.writeln('## 建议\n');
-    buffer.writeln('1. **记录感受**：醒来后立即记录梦中的情绪，这些感受往往最真实');
-    buffer.writeln('2. **联系现实**：思考近期生活中是否有与梦境呼应的事件');
-    buffer.writeln('3. **保持觉察**：连续记录梦境有助于发现潜意识模式\n');
-    buffer.writeln('---\n');
-    buffer.writeln('*注：当前为离线基础解析。连接服务器后可获得更详细的AI深度解析（心理学+传统文化+现实联结三重视角）*');
-
     return buffer.toString();
   }
 

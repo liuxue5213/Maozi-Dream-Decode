@@ -59,7 +59,7 @@ def get_item(item_id: int, db: Session = Depends(get_db)):
 def list_items(
     category: str | None = None,
     page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
+    page_size: int = Query(20, ge=1, le=200),
     db: Session = Depends(get_db),
 ):
     query = db.query(EncyclopediaItem).filter(EncyclopediaItem.status == 1)

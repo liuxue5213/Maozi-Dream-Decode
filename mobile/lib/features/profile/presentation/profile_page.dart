@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:dream_decode/core/theme/theme_provider.dart';
 import 'package:dream_decode/features/auth/data/auth_storage.dart';
+import 'package:dream_decode/features/dream/data/dream_model.dart';
 import 'package:dream_decode/features/dream/data/local_dream_storage.dart';
 import 'package:dream_decode/core/env.dart';
 
@@ -15,18 +17,46 @@ class ProfilePage extends ConsumerStatefulWidget {
 
 class _ProfilePageState extends ConsumerState<ProfilePage> {
   int _dreamCount = 0;
+  int _streakDays = 0;
+  int _interpretedCount = 0;
+  bool _statsLoaded = false;
 
   @override
   void initState() {
     super.initState();
-    _loadDreamCount();
+    _loadStats();
   }
 
-  Future<void> _loadDreamCount() async {
+  Future<void> _loadStats() async {
     final dreams = await LocalDreamStorage.getDreams();
-    if (mounted) {
-      setState(() => _dreamCount = dreams.length);
+    if (!mounted) return;
+    setState(() {
+      _dreamCount = dreams.length;
+      _streakDays = _computeStreakDays(dreams);
+      _interpretedCount = dreams
+          .where((d) =>
+              (d.interpretation != null && d.interpretation!.isNotEmpty) ||
+              d.hasInterpretation)
+          .length;
+      _statsLoaded = true;
+    });
+  }
+
+  /// 连续记录天数：从最近一次记录的日期往前数连续有记录的天数
+  int _computeStreakDays(List<DreamModel> dreams) {
+    final days = dreams
+        .map((d) => DateTime.tryParse(d.date))
+        .whereType<DateTime>()
+        .map((dt) => DateTime(dt.year, dt.month, dt.day))
+        .toSet();
+    if (days.isEmpty) return 0;
+    var day = days.reduce((a, b) => a.isAfter(b) ? a : b);
+    var streak = 0;
+    while (days.contains(day)) {
+      streak++;
+      day = day.subtract(const Duration(days: 1));
     }
+    return streak;
   }
 
   Future<void> _logout() async {
@@ -56,6 +86,10 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
 
   @override
   Widget build(BuildContext context) {
+    final themeMode = ref.watch(themeModeProvider);
+    final isDark = themeMode == ThemeMode.dark;
+    final nickname = AuthStorage.getNickname();
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('个人中心'),
@@ -64,7 +98,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
       body: ListView(
         children: [
           const SizedBox(height: 32),
-          
+
           // 头像和用户信息
           Center(
             child: Column(
@@ -80,7 +114,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  AuthStorage.isLoggedIn ? '已登录用户' : '未登录',
+                  AuthStorage.isLoggedIn ? (nickname ?? '梦友') : '游客',
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
                 const SizedBox(height: 8),
@@ -93,29 +127,36 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
               ],
             ),
           ),
-          
+
           const SizedBox(height: 32),
-          
+
           // 统计卡片
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _buildStatItem('记录梦境', '$_dreamCount'),
-                    _buildStatItem('连续打卡', '$_dreamCount'),
-                    _buildStatItem('解析次数', '$_dreamCount'),
-                  ],
-                ),
+                child: _statsLoaded
+                    ? Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          _buildStatItem('记录梦境', '$_dreamCount'),
+                          _buildStatItem('连续记录', '$_streakDays 天'),
+                          _buildStatItem('已解析', '$_interpretedCount'),
+                        ],
+                      )
+                    : const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(8),
+                          child: CircularProgressIndicator(),
+                        ),
+                      ),
               ),
             ),
           ),
-          
+
           const SizedBox(height: 24),
-          
+
           // 功能列表
           _buildSection(
             '账户设置',
@@ -140,7 +181,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
               ),
             ],
           ),
-          
+
           _buildSection(
             '通用设置',
             [
@@ -156,19 +197,24 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
               _buildListItem(
                 icon: Icons.dark_mode_outlined,
                 title: '深色模式',
+                subtitle: switch (themeMode) {
+                  ThemeMode.dark => '已开启',
+                  ThemeMode.light => '已关闭',
+                  _ => '跟随系统',
+                },
                 trailing: Switch(
-                  value: Theme.of(context).brightness == Brightness.dark,
+                  value: isDark,
                   onChanged: (value) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('功能开发中...')),
-                    );
+                    ref.read(themeModeProvider.notifier).setMode(
+                          value ? ThemeMode.dark : ThemeMode.light,
+                        );
                   },
                 ),
                 onTap: null,
               ),
             ],
           ),
-          
+
           _buildSection(
             '关于',
             [
@@ -196,9 +242,9 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
               ),
             ],
           ),
-          
+
           const SizedBox(height: 24),
-          
+
           // 退出登录按钮
           if (AuthStorage.isLoggedIn)
             Padding(
@@ -212,7 +258,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                 ),
               ),
             ),
-          
+
           const SizedBox(height: 32),
         ],
       ),

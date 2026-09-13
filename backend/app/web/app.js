@@ -348,7 +348,7 @@ async function loadEncyclopedia() {
     container.innerHTML = '<div class="loading">加载中...</div>';
     
     try {
-        const result = await apiRequest('/encyclopedia?page_size=100');
+        const result = await apiRequest('/encyclopedia?page_size=200');
         encyclopediaData = result;
         filterEncyclopedia();
     } catch (error) {

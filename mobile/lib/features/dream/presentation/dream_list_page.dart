@@ -164,12 +164,16 @@ class _DreamListPageState extends ConsumerState<DreamListPage> {
             onDismissed: (_) => _deleteDream(dream),
             child: Card(
               margin: const EdgeInsets.only(bottom: 12),
-            child: ListTile(
+              child: ListTile(
               title: Text(
                 dream.content,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
+              trailing: dream.hasInterpretation
+                  ? Icon(Icons.auto_awesome,
+                      size: 18, color: Theme.of(context).colorScheme.primary)
+                  : null,
               subtitle: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

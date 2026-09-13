@@ -5,7 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:dream_decode/features/dream/data/dream_repository.dart';
 import 'package:dream_decode/features/dream/data/dream_model.dart';
 
-/// 梦境详情页面 - 显示梦境内容和AI解析结果
+/// 梦境详情页面 - 显示梦境内容和AI解析结果（流式打字机效果）
 class DreamDetailPage extends ConsumerStatefulWidget {
   final String dreamId;
 
@@ -17,9 +17,11 @@ class DreamDetailPage extends ConsumerStatefulWidget {
 
 class _DreamDetailPageState extends ConsumerState<DreamDetailPage> {
   final DreamRepository _repository = DreamRepository();
+  final ScrollController _scrollController = ScrollController();
   DreamModel? _dream;
   bool _isLoading = true;
   bool _isInterpreting = false;
+  bool _disposed = false;
   String? _interpretation;
   String? _error;
 
@@ -28,6 +30,16 @@ class _DreamDetailPageState extends ConsumerState<DreamDetailPage> {
     super.initState();
     _loadDream();
   }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  /// 把 "Exception: xxx" 还原成用户可读的中文提示
+  String _friendly(Object e) => e.toString().replaceFirst(RegExp(r'^Exception:\s*'), '');
 
   Future<void> _loadDream() async {
     setState(() {
@@ -109,27 +121,59 @@ class _DreamDetailPageState extends ConsumerState<DreamDetailPage> {
     }
   }
 
+  /// 流式解析：边生成边渲染，完成后回退到非流式接口重试一次
   Future<void> _startInterpretation() async {
-    if (_dream == null) return;
+    if (_dream == null || _isInterpreting) return;
 
-    setState(() => _isInterpreting = true);
+    setState(() {
+      _isInterpreting = true;
+      _error = null;
+      _interpretation ??= '';
+    });
 
+    final buffer = StringBuffer();
+    String? failureMessage;
     try {
-      final result = await _repository.interpretDream(_dream!.id);
-      if (mounted) {
+      await for (final delta in _repository.interpretDreamStream(_dream!.id)) {
+        if (_disposed) return;
+        buffer.write(delta);
+        if (mounted) {
+          setState(() => _interpretation = buffer.toString());
+          _scrollToBottom();
+        }
+      }
+      if (buffer.toString().trim().isEmpty) {
+        throw Exception('AI 没有返回解析内容');
+      }
+      await _repository.saveInterpretation(_dream!.id, buffer.toString());
+      if (!mounted) return;
+      setState(() => _isInterpreting = false);
+    } catch (streamError) {
+      print('流式解析失败，回退到非流式: $streamError');
+      failureMessage = _friendly(streamError);
+      try {
+        final result = await _repository.interpretDream(_dream!.id);
+        if (!mounted) return;
         setState(() {
           _interpretation = result;
           _isInterpreting = false;
         });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _isInterpreting = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('解析失败: $e')),
-        );
+      } catch (_) {
+        if (!mounted) return;
+        setState(() {
+          _isInterpreting = false;
+          _interpretation = null;
+          _error = failureMessage;
+        });
       }
     }
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scrollController.hasClients) return;
+      _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+    });
   }
 
   @override
@@ -154,12 +198,22 @@ class _DreamDetailPageState extends ConsumerState<DreamDetailPage> {
       return const Center(child: CircularProgressIndicator());
     }
 
-    if (_error != null || _dream == null) {
+    if (_dream == null) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Text('加载失败'),
+            if (_error != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                _friendly(_error!),
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.outline,
+                ),
+              ),
+            ],
             const SizedBox(height: 16),
             FilledButton(onPressed: _loadDream, child: const Text('重试')),
           ],
@@ -168,6 +222,7 @@ class _DreamDetailPageState extends ConsumerState<DreamDetailPage> {
     }
 
     return ListView(
+      controller: _scrollController,
       padding: const EdgeInsets.all(16),
       children: [
         // 梦境信息卡片
@@ -179,7 +234,7 @@ class _DreamDetailPageState extends ConsumerState<DreamDetailPage> {
               children: [
                 Row(
                   children: [
-                    Icon(Icons.nightlight_round, 
+                    Icon(Icons.nightlight_round,
                          color: Theme.of(context).colorScheme.primary),
                     const SizedBox(width: 8),
                     Text(
@@ -206,14 +261,16 @@ class _DreamDetailPageState extends ConsumerState<DreamDetailPage> {
             ),
           ),
         ),
-        
+
         const SizedBox(height: 16),
-        
+
         // AI解析结果
         if (_interpretation != null && _interpretation!.isNotEmpty) ...[
           _buildInterpretationCard(),
         ] else if (_isInterpreting) ...[
           _buildInterpretingCard(),
+        ] else if (_error != null) ...[
+          _buildErrorCard(),
         ] else ...[
           _buildStartInterpretationCard(),
         ],
@@ -222,6 +279,7 @@ class _DreamDetailPageState extends ConsumerState<DreamDetailPage> {
   }
 
   Widget _buildInterpretationCard() {
+    final colorScheme = Theme.of(context).colorScheme;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -230,13 +288,20 @@ class _DreamDetailPageState extends ConsumerState<DreamDetailPage> {
           children: [
             Row(
               children: [
-                Icon(Icons.auto_awesome, 
-                     color: Theme.of(context).colorScheme.primary),
+                Icon(Icons.auto_awesome,
+                     color: colorScheme.primary),
                 const SizedBox(width: 8),
                 Text(
                   'AI 梦境解析',
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
+                const Spacer(),
+                if (_isInterpreting)
+                  const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
               ],
             ),
             const Divider(height: 24),
@@ -247,15 +312,15 @@ class _DreamDetailPageState extends ConsumerState<DreamDetailPage> {
                 h2: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 h3: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                 p: const TextStyle(fontSize: 15, height: 1.6),
-                blockquote: const TextStyle(
-                  fontSize: 14, 
+                blockquote: TextStyle(
+                  fontSize: 14,
                   fontStyle: FontStyle.italic,
-                  color: Colors.grey,
+                  color: colorScheme.onSurfaceVariant,
                 ),
                 blockquoteDecoration: BoxDecoration(
-                  color: Colors.grey.shade100,
+                  color: colorScheme.secondaryContainer.withOpacity(0.4),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.grey.shade300),
+                  border: Border(left: BorderSide(color: colorScheme.primary, width: 3)),
                 ),
                 listBullet: const TextStyle(fontSize: 15),
               ),
@@ -264,7 +329,7 @@ class _DreamDetailPageState extends ConsumerState<DreamDetailPage> {
             Text(
               'AI 解析结果仅供参考，不构成医疗或心理治疗建议',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Colors.grey,
+                color: colorScheme.onSurfaceVariant,
               ),
             ),
           ],
@@ -274,6 +339,7 @@ class _DreamDetailPageState extends ConsumerState<DreamDetailPage> {
   }
 
   Widget _buildInterpretingCard() {
+    final colorScheme = Theme.of(context).colorScheme;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -289,7 +355,7 @@ class _DreamDetailPageState extends ConsumerState<DreamDetailPage> {
             Text(
               '深度分析需要一些时间，请稍候',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Colors.grey,
+                color: colorScheme.onSurfaceVariant,
               ),
             ),
           ],
@@ -298,7 +364,38 @@ class _DreamDetailPageState extends ConsumerState<DreamDetailPage> {
     );
   }
 
+  Widget _buildErrorCard() {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          children: [
+            Icon(
+              Icons.cloud_off_outlined,
+              size: 56,
+              color: colorScheme.outline,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              _error!,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 24),
+            FilledButton.icon(
+              onPressed: _startInterpretation,
+              icon: const Icon(Icons.refresh),
+              label: const Text('重试'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildStartInterpretationCard() {
+    final colorScheme = Theme.of(context).colorScheme;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -307,7 +404,7 @@ class _DreamDetailPageState extends ConsumerState<DreamDetailPage> {
             Icon(
               Icons.psychology_outlined,
               size: 64,
-              color: Theme.of(context).colorScheme.outline,
+              color: colorScheme.outline,
             ),
             const SizedBox(height: 16),
             Text(
@@ -319,7 +416,7 @@ class _DreamDetailPageState extends ConsumerState<DreamDetailPage> {
               '让 AI 从心理学和传统文化角度\n深度解析这个梦境',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Colors.grey,
+                color: colorScheme.onSurfaceVariant,
               ),
             ),
             const SizedBox(height: 24),

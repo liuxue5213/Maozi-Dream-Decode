@@ -1,4 +1,6 @@
 import 'package:dio/dio.dart';
+import 'package:go_router/go_router.dart';
+import '../app_keys.dart';
 import '../env.dart';
 import '../../features/auth/data/auth_storage.dart';
 
@@ -26,8 +28,13 @@ class DioClient {
       },
       onError: (error, handler) {
         if (error.response?.statusCode == 401) {
-          // Token 过期，清除并跳转登录
-          AuthStorage.clear();
+          // 登录/注册接口的 401 是密码错误，不属于会话过期
+          final path = error.requestOptions.path;
+          final isAuthRequest = path.contains('auth/login') || path.contains('auth/register');
+          if (!isAuthRequest && AuthStorage.isLoggedIn) {
+            AuthStorage.clear();
+            rootNavigatorKey.currentContext?.go('/login');
+          }
         }
         handler.next(error);
       },

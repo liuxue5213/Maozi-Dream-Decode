@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'core/app_keys.dart';
 import 'features/auth/data/auth_storage.dart';
 import 'features/auth/presentation/login_page.dart';
 import 'features/dream/presentation/dream_list_page.dart';
@@ -11,6 +12,7 @@ import 'features/profile/presentation/profile_page.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
+    navigatorKey: rootNavigatorKey,
     initialLocation: '/',
     redirect: (context, state) {
       // 游客模式：不再强制登录，但保留登录页入口

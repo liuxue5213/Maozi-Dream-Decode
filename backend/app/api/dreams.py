@@ -1,3 +1,5 @@
+import json
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
@@ -67,7 +69,28 @@ def list_dreams(
         .limit(page_size)
         .all()
     )
-    return [DreamListResponse.model_validate(d) for d in dreams]
+    # 查出本页中已有解析结果的梦境 id，避免 schema 默认值导致 has_interpretation 恒为 False
+    dream_ids = [d.id for d in dreams]
+    interpreted_ids: set[int] = set()
+    if dream_ids:
+        interpreted_ids = {
+            row[0]
+            for row in db.query(Interpretation.dream_id)
+            .filter(Interpretation.dream_id.in_(dream_ids))
+            .distinct()
+            .all()
+        }
+    return [
+        DreamListResponse(
+            id=d.id,
+            content=d.content,
+            emotion_tags=d.emotion_tags,
+            dream_date=d.dream_date,
+            created_at=d.created_at,
+            has_interpretation=d.id in interpreted_ids,
+        )
+        for d in dreams
+    ]
 
 
 @router.get("/{dream_id}", response_model=DreamResponse)
@@ -158,15 +181,46 @@ async def create_interpretation_stream(
         raise HTTPException(status_code=404, detail="梦境记录不存在")
     
     async def generate():
-        async for chunk in interpret_dream_stream(
-            content=dream.content,
-            emotion_tags=dream.emotion_tags,
-            scene_tags=dream.scene_tags,
-            character_tags=dream.character_tags,
-            sleep_quality=dream.sleep_quality,
-        ):
-            yield f"data: {chunk}\n\n"
-    
+        accumulated: list[str] = []
+        completed = False
+        try:
+            async for chunk in interpret_dream_stream(
+                content=dream.content,
+                emotion_tags=dream.emotion_tags,
+                scene_tags=dream.scene_tags,
+                character_tags=dream.character_tags,
+                sleep_quality=dream.sleep_quality,
+            ):
+                # 上游 chunk 为 OpenAI 兼容的 JSON 行，解析出增量文本再下发
+                try:
+                    chunk_json = json.loads(chunk)
+                except json.JSONDecodeError:
+                    continue
+                if chunk_json.get("error"):
+                    yield f"data: {json.dumps({'error': chunk_json['error']}, ensure_ascii=False)}\n\n"
+                    return
+                choices = chunk_json.get("choices") or []
+                if not choices:
+                    continue
+                delta = (choices[0].get("delta") or {}).get("content")
+                if delta:
+                    accumulated.append(delta)
+                    yield f"data: {json.dumps({'content': delta}, ensure_ascii=False)}\n\n"
+            completed = True
+        finally:
+            full_text = "".join(accumulated).strip()
+            # 只保存完整跑完的结果，客户端中途断开时不落库截断文本
+            if completed and full_text:
+                db.add(
+                    Interpretation(
+                        dream_id=dream.id,
+                        result_json={"content": full_text},
+                        engine_type="ai",
+                    )
+                )
+                db.commit()
+        yield f"data: {json.dumps({'done': True}, ensure_ascii=False)}\n\n"
+
     return StreamingResponse(generate(), media_type="text/event-stream")
 
 
